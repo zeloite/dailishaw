@@ -2,6 +2,49 @@
 
 import { createAdminClient } from '@/lib/supabase/server';
 
+const DEFAULT_HOME_PRODUCT_NAME = 'Home Media';
+
+export async function ensureDefaultProduct(categoryId: string) {
+  const supabase = createAdminClient();
+
+  // Check if a default product already exists for this category
+  const { data: existing, error: selectError } = await supabase
+    .from('products')
+    .select('*')
+    .eq('category_id', categoryId)
+    .ilike('name', `${DEFAULT_HOME_PRODUCT_NAME}%`)
+    .limit(1)
+    .maybeSingle();
+
+  if (selectError && selectError.code !== 'PGRST116') {
+    return { success: false, error: selectError.message };
+  }
+
+  if (existing) {
+    return { success: true, product: existing };
+  }
+
+  // Create a default product for Home category
+  const { data, error } = await supabase
+    .from('products')
+    .insert([
+      {
+        category_id: categoryId,
+        name: DEFAULT_HOME_PRODUCT_NAME,
+        description: 'Default container for home media uploads',
+        is_active: true,
+      },
+    ])
+    .select()
+    .single();
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true, product: data };
+}
+
 export async function uploadProductImage(
   productId: string,
   imageUrl: string,

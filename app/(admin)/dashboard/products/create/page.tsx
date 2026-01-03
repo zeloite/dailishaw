@@ -16,6 +16,8 @@ import {
   Package,
   FolderOpen,
   Plus,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import {
   Avatar,
@@ -28,7 +30,9 @@ import { logoutAction } from '@/app/actions/logout';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Textarea } from '@/components/ui/Textarea';
+import { Dialog, DialogContent, DialogHeader, DialogFooter } from '@/components/ui/Dialog';
 import { createClient } from '@/lib/supabase/client';
+import { updateProductSortOrder, deleteProduct } from '../actions';
 
 const navigationItems = [
   {
@@ -64,6 +68,7 @@ interface Product {
   category_id: string;
   is_active: boolean;
   created_at: string;
+  sort_order?: number;
 }
 
 export default function AddProductsPage() {
@@ -77,6 +82,9 @@ export default function AddProductsPage() {
   const [productName, setProductName] = useState('');
   const [productDescription, setProductDescription] = useState('');
   const [fetchingProducts, setFetchingProducts] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [deletingProduct, setDeletingProduct] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -88,16 +96,19 @@ export default function AddProductsPage() {
     // Get category from URL params if available
     const categoryParam = searchParams.get('category');
     if (categoryParam) {
+      console.log('Setting category from URL:', categoryParam);
       setSelectedCategoryId(categoryParam);
     }
   }, [searchParams]);
 
   useEffect(() => {
     if (selectedCategoryId) {
+      console.log('Fetching products for category:', selectedCategoryId);
       fetchProducts();
     } else {
       setProducts([]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCategoryId]);
 
   const fetchCategories = async () => {
@@ -126,7 +137,8 @@ export default function AddProductsPage() {
         .from('products')
         .select('*')
         .eq('category_id', selectedCategoryId)
-        .order('created_at', { ascending: false });
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true });
 
       if (error) throw error;
       setProducts(data || []);
@@ -134,6 +146,48 @@ export default function AddProductsPage() {
       console.error('Error fetching products:', error);
     } finally {
       setFetchingProducts(false);
+    }
+  };
+
+  const handleMoveProduct = async (productId: string, direction: 'up' | 'down') => {
+    try {
+      console.log(`Moving product ${productId} ${direction}`);
+      const result = await updateProductSortOrder(productId, direction);
+      console.log('Move result:', result);
+      if (result.success) {
+        await fetchProducts();
+      } else {
+        console.error('Failed to move product:', result);
+      }
+    } catch (error) {
+      console.error('Error moving product:', error);
+    }
+  };
+
+  const handleDeleteProduct = async (productId: string, productName: string) => {
+    setProductToDelete({ id: productId, name: productName });
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteProduct = async () => {
+    if (!productToDelete) return;
+
+    try {
+      setDeletingProduct(true);
+      console.log(`Deleting product ${productToDelete.id}`);
+      const result = await deleteProduct(productToDelete.id);
+      console.log('Delete result:', result);
+      if (result.success) {
+        setDeleteDialogOpen(false);
+        setProductToDelete(null);
+        await fetchProducts();
+      } else {
+        console.error('Failed to delete product:', result);
+      }
+    } catch (error) {
+      console.error('Error deleting product:', error);
+    } finally {
+      setDeletingProduct(false);
     }
   };
 
@@ -361,8 +415,11 @@ export default function AddProductsPage() {
                     <div className="relative">
                       <select
                         id="category"
-                        value={selectedCategoryId}
-                        onChange={(e) => setSelectedCategoryId(e.target.value)}
+                        value={selectedCategoryId || ''}
+                        onChange={(e) => {
+                          console.log('Category changed to:', e.target.value);
+                          setSelectedCategoryId(e.target.value);
+                        }}
                         required
                         disabled={loading}
                         className="w-full h-12 bg-white rounded-lg border-2 border-gray-200 text-gray-900 px-4 pr-10 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 focus:outline-none transition-all appearance-none cursor-pointer font-medium"
@@ -484,7 +541,7 @@ export default function AddProductsPage() {
                   </div>
                 ) : (
                   <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
-                    {products.map((product) => (
+                    {products.map((product, index) => (
                       <div 
                         key={product.id} 
                         className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
@@ -506,10 +563,31 @@ export default function AddProductsPage() {
                           </p>
                         )}
                         
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-400">
-                            {new Date(product.created_at).toLocaleDateString()}
-                          </span>
+                        <div className="flex items-center justify-between flex-wrap gap-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-400">
+                              {new Date(product.created_at).toLocaleDateString()}
+                            </span>
+                            
+                            <div className="flex items-center gap-1 ml-2">
+                              <button
+                                onClick={() => handleMoveProduct(product.id, 'up')}
+                                disabled={index === 0 || fetchingProducts}
+                                className="p-1.5 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                title="Move up"
+                              >
+                                <ArrowUp className="w-4 h-4 text-blue-600" />
+                              </button>
+                              <button
+                                onClick={() => handleMoveProduct(product.id, 'down')}
+                                disabled={index === products.length - 1 || fetchingProducts}
+                                className="p-1.5 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                title="Move down"
+                              >
+                                <ArrowDown className="w-4 h-4 text-blue-600" />
+                              </button>
+                            </div>
+                          </div>
                           
                           <div className="flex gap-2">
                             <Link href={`/dashboard/products/images?product=${product.id}`}>
@@ -524,6 +602,7 @@ export default function AddProductsPage() {
                             <Button 
                               variant="ghost" 
                               size="sm"
+                              onClick={() => handleDeleteProduct(product.id, product.name)}
                               className="text-gray-500 hover:text-red-600 hover:bg-red-50"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -539,6 +618,39 @@ export default function AddProductsPage() {
           </div>
         </div>
       </main>
-    </div>
+
+      {/* Delete Product Dialog */}
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <h2 className="text-xl font-semibold text-gray-900">Delete Product</h2>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-gray-700 mb-2">
+              Are you sure you want to delete <span className="font-semibold">'{productToDelete?.name}'</span>?
+            </p>
+            <p className="text-gray-500 text-sm">
+              This action will delete all images associated with this product. This cannot be undone.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+              disabled={deletingProduct}
+              className="border-gray-300 text-gray-700 hover:bg-gray-100"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmDeleteProduct}
+              disabled={deletingProduct}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deletingProduct ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>    </div>
   );
 }

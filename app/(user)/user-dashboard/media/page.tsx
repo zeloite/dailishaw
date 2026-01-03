@@ -1,47 +1,39 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
-  BellIcon,
-  ChevronDownIcon,
-  SearchIcon,
-  MenuIcon,
-  ChevronLeftIcon,
-  LogOutIcon,
-  PlayCircle,
-  TrendingUp,
+  Minimize,
+  Maximize,
   X,
-  ChevronLeft,
-  ChevronRight,
+  ArrowLeft,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from '@/components/ui/Avatar';
-import { logoutAction } from '@/app/actions/logout';
 import { createClient } from '@/lib/supabase/client';
+import { updateProductSortOrder } from '@/app/(admin)/dashboard/products/actions';
 
-const navigationItems = [
-  {
-    icon: PlayCircle,
-    label: 'Media Viewer',
-    active: true,
-    href: '/user-dashboard/media',
-  },
-  {
-    icon: TrendingUp,
-    label: 'Expense Management',
-    active: false,
-    href: '/user-dashboard/expenses',
-  },
-];
+// Hide scrollbar but keep functionality
+const globalStyles = `
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+`;
 
 interface Category {
   id: string;
   name: string;
+}
+
+interface Product {
+  id: string;
+  name: string;
+  category_id: string;
 }
 
 interface ProductImage {
@@ -54,24 +46,58 @@ interface ProductImage {
 }
 
 export default function UserMediaPage() {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all');
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [images, setImages] = useState<ProductImage[]>([]);
+  const [currentImageIndex, setCurrentImageIndex] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const [fullscreenImage, setFullscreenImage] = useState<ProductImage | null>(null);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Minimum swipe distance (in px)
+  const minSwipeDistance = 50;
 
   useEffect(() => {
     fetchCategories();
-    fetchImages();
+    fetchAllProducts();
+    fetchAllImages();
+    // Auto enter fullscreen
+    enterFullscreen();
   }, []);
 
   useEffect(() => {
-    if (selectedCategoryId) {
-      fetchImages();
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const enterFullscreen = () => {
+    setTimeout(() => {
+      containerRef.current?.requestFullscreen().catch(err => {
+        console.log('Fullscreen request failed:', err);
+      });
+    }, 100);
+  };
+
+  const exitFullscreen = () => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
     }
-  }, [selectedCategoryId]);
+  };
+
+  const toggleFullscreen = () => {
+    if (isFullscreen) {
+      exitFullscreen();
+    } else {
+      enterFullscreen();
+    }
+  };
 
   const fetchCategories = async () => {
     try {
@@ -89,13 +115,28 @@ export default function UserMediaPage() {
     }
   };
 
-  const fetchImages = async () => {
+  const fetchAllProducts = async () => {
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('products')
+        .select('id, name, category_id')
+        .eq('is_active', true)
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+      setAllProducts(data || []);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    }
+  };
+
+  const fetchAllImages = async () => {
     setLoading(true);
     try {
       const supabase = createClient();
       
-      // Fetch products with their images and category info
-      let query = supabase
+      const { data, error } = await supabase
         .from('product_images')
         .select(`
           id,
@@ -111,16 +152,8 @@ export default function UserMediaPage() {
         `)
         .order('created_at', { ascending: false });
 
-      // Filter by category if not "all"
-      if (selectedCategoryId !== 'all') {
-        query = query.eq('products.category_id', selectedCategoryId);
-      }
-
-      const { data, error } = await query;
-
       if (error) throw error;
 
-      // Transform the data
       const transformedImages = (data || []).map((img: any) => ({
         id: img.id,
         image_url: img.image_url,
@@ -138,273 +171,270 @@ export default function UserMediaPage() {
     }
   };
 
-  const openFullscreen = (image: ProductImage, index: number) => {
-    setFullscreenImage(image);
-    setCurrentImageIndex(index);
+  const getProductsForCategory = (categoryId: string): Product[] => {
+    // Filter products by category and only include those with images
+    return allProducts.filter(product => 
+      product.category_id === categoryId &&
+      images.some(img => img.product_id === product.id)
+    );
   };
 
-  const closeFullscreen = () => {
-    setFullscreenImage(null);
+  const handleCategoryClick = (categoryId: string) => {
+    const category = categories.find(c => c.id === categoryId);
+    const isHome = category?.name?.trim().toLowerCase() === 'home';
+
+    if (isHome) {
+      setSelectedCategoryId(categoryId);
+      // Jump directly to first image of Home category
+      const homeImages = images.filter(img => img.category_id === categoryId);
+      if (homeImages.length > 0) {
+        const firstIndex = images.findIndex(img => img.id === homeImages[0].id);
+        setCurrentImageIndex(firstIndex);
+      }
+      return;
+    }
+
+    if (selectedCategoryId === categoryId) {
+      // Collapse if same category clicked
+      setSelectedCategoryId(null);
+    } else {
+      setSelectedCategoryId(categoryId);
+    }
   };
 
-  const navigateImage = (direction: 'prev' | 'next') => {
-    if (!fullscreenImage) return;
+  const handleProductClick = (productId: string) => {
+    const imageIndex = images.findIndex(img => img.product_id === productId);
+    if (imageIndex !== -1) {
+      setCurrentImageIndex(imageIndex);
+    }
+  };
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
     
-    const newIndex = direction === 'prev' 
-      ? (currentImageIndex - 1 + images.length) % images.length
-      : (currentImageIndex + 1) % images.length;
-    
-    setCurrentImageIndex(newIndex);
-    setFullscreenImage(images[newIndex]);
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (currentImageIndex !== null && selectedCategoryId) {
+      // Get filtered images for current category
+      const categoryImages = images.filter(img => img.category_id === selectedCategoryId);
+      const currentIndexInCategory = categoryImages.findIndex(img => img.id === images[currentImageIndex].id);
+
+      if (isLeftSwipe) {
+        // Moving to next image
+        if (currentIndexInCategory < categoryImages.length - 1) {
+          // Next image in same category
+          const nextGlobalIndex = images.findIndex(img => img.id === categoryImages[currentIndexInCategory + 1].id);
+          setCurrentImageIndex(nextGlobalIndex);
+        } else {
+          // At end of category, go to next category
+          const currentCategoryIndex = categories.findIndex(cat => cat.id === selectedCategoryId);
+          if (currentCategoryIndex < categories.length - 1) {
+            const nextCategoryId = categories[currentCategoryIndex + 1].id;
+            const nextCategoryImages = images.filter(img => img.category_id === nextCategoryId);
+            if (nextCategoryImages.length > 0) {
+              setSelectedCategoryId(nextCategoryId);
+              const firstImageIndex = images.findIndex(img => img.id === nextCategoryImages[0].id);
+              setCurrentImageIndex(firstImageIndex);
+            }
+          }
+        }
+      }
+
+      if (isRightSwipe) {
+        // Moving to previous image
+        if (currentIndexInCategory > 0) {
+          // Previous image in same category
+          const prevGlobalIndex = images.findIndex(img => img.id === categoryImages[currentIndexInCategory - 1].id);
+          setCurrentImageIndex(prevGlobalIndex);
+        } else {
+          // At start of category, go to previous category
+          const currentCategoryIndex = categories.findIndex(cat => cat.id === selectedCategoryId);
+          if (currentCategoryIndex > 0) {
+            const prevCategoryId = categories[currentCategoryIndex - 1].id;
+            const prevCategoryImages = images.filter(img => img.category_id === prevCategoryId);
+            if (prevCategoryImages.length > 0) {
+              setSelectedCategoryId(prevCategoryId);
+              const lastImageIndex = images.findIndex(img => img.id === prevCategoryImages[prevCategoryImages.length - 1].id);
+              setCurrentImageIndex(lastImageIndex);
+            }
+          }
+        }
+      }
+    } else if (currentImageIndex !== null) {
+      // No category selected, swipe through all images
+      if (isLeftSwipe && currentImageIndex < images.length - 1) {
+        setCurrentImageIndex(currentImageIndex + 1);
+      }
+      if (isRightSwipe && currentImageIndex > 0) {
+        setCurrentImageIndex(currentImageIndex - 1);
+      }
+    }
   };
 
-  const handleLogout = async () => {
-    await logoutAction();
-  };
-
-  const filteredImages = selectedCategoryId === 'all' 
-    ? images 
-    : images.filter(img => img.category_id === selectedCategoryId);
+  const currentImage = currentImageIndex !== null ? images[currentImageIndex] : null;
 
   return (
-    <div className="flex min-h-screen bg-[#f7f8fa]">
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      <aside
-        className={`
-        fixed inset-y-0 left-0 z-50
-        w-[264px] bg-white flex-shrink-0 flex flex-col h-screen overflow-hidden
-        transition-all duration-300 ease-in-out
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}
+    <>
+      <style dangerouslySetInnerHTML={{ __html: globalStyles }} />
+      <div 
+        ref={containerRef}
+        className="relative w-full h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black overflow-hidden touch-none"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
       >
-        <div className="flex items-center justify-between px-4 pt-4">
-          <Link href="/user-dashboard" className="relative w-[200px] h-[80px] cursor-pointer">
-            <Image
-              src="/dashboard-logo.gif"
-              alt="Dailishaw Logo"
-              fill
-              className="object-contain"
-              priority
-              unoptimized
-            />
-          </Link>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="p-2 rounded-md hover:bg-gray-100"
-          >
-            <ChevronLeftIcon className="w-6 h-6 text-gray-900" />
-          </button>
-        </div>
+      {/* Exit Fullscreen Button */}
+      <button
+        onClick={toggleFullscreen}
+        className="absolute top-3 right-3 sm:top-4 sm:right-4 md:top-6 md:right-6 z-50 p-2 sm:p-2.5 md:p-3 rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all"
+      >
+        {isFullscreen ? (
+          <Minimize className="w-5 h-5 sm:w-5 sm:h-5 md:w-6 md:h-6 text-white" />
+        ) : (
+          <Maximize className="w-5 h-5 sm:w-5 sm:h-5 md:w-6 md:h-6 text-white" />
+        )}
+      </button>
 
-        <nav className="mt-8 flex-1">
-          {navigationItems.map((item, index) => (
-            <Link
-              key={index}
-              href={item.href}
-              className={`flex items-center gap-3 px-6 py-4 cursor-pointer transition-colors ${
-                item.active
-                  ? 'bg-[#f9831b1a] border-l-4 border-[#f9831b]'
-                  : 'hover:bg-gray-50'
-              }`}
-            >
-              <item.icon
-                className={`w-6 h-6 ${
-                  item.active ? 'text-[#f9831b]' : 'text-[#5d5d5d]'
-                }`}
-              />
-              <span
-                className={`font-['Inter',Helvetica] font-normal text-base ${
-                  item.active ? 'text-[#f9831b]' : 'text-[#5d5d5d]'
-                }`}
-              >
-                {item.label}
-              </span>
-            </Link>
-          ))}
-        </nav>
+      {/* Back Button */}
+      <Link
+        href="/user-dashboard"
+        className="absolute top-3 left-3 sm:top-4 sm:left-4 md:top-6 md:left-6 z-50 p-2 sm:p-2.5 md:p-3 rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all flex items-center gap-2 text-white"
+      >
+        <ArrowLeft className="w-5 h-5 sm:w-5 sm:h-5 md:w-6 md:h-6" />
+        <span className="hidden sm:inline text-sm font-medium">Back</span>
+      </Link>
 
-        <div className="border-t border-gray-200 p-4">
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 rounded-lg transition-colors"
-          >
-            <LogOutIcon className="w-6 h-6 text-[#5d5d5d]" />
-            <span className="font-['Inter',Helvetica] font-normal text-base text-[#5d5d5d]">
-              Logout
-            </span>
-          </button>
-        </div>
-      </aside>
-
-      <main className={`flex-1 flex flex-col w-full transition-all duration-300 ${sidebarOpen ? 'lg:ml-[264px]' : 'ml-0'}`}>
-        <header className="h-20 bg-white shadow-[0px_2px_4px_#d9d9d940] flex items-center px-4 lg:px-6 gap-3 lg:gap-6">
-          {!sidebarOpen && (
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="p-2 rounded-md hover:bg-gray-100"
-            >
-              <MenuIcon className="w-6 h-6 text-gray-900" />
-            </button>
-          )}
-
-          <h1 className="font-['Inter',Helvetica] font-medium text-black text-xl lg:text-[32px] whitespace-nowrap">
-            Media Viewer
-          </h1>
-
-          <div className="hidden md:flex flex-1 max-w-[327px] relative ml-6">
-            <div className="relative w-full">
-              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-6 h-6 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search media..."
-                className="w-full h-[41px] pl-12 pr-4 bg-white rounded-[10px] border border-black font-['Inter',Helvetica] font-medium text-[15px] placeholder:text-[#b8b3b3]"
-              />
-            </div>
+      {/* Main Content Area - Fullscreen */}
+      <div className="relative w-full h-[calc(100vh-44px)] sm:h-[calc(100vh-48px)] md:h-[calc(100vh-56px)] flex items-center justify-center">
+        {loading ? (
+          <div className="flex flex-col items-center">
+            <div className="animate-spin rounded-full h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 border-b-4 border-[#f9831b]"></div>
+            <p className="text-white mt-4 text-sm sm:text-base md:text-lg">Loading media...</p>
           </div>
-
-          <div className="ml-auto flex items-center gap-3 lg:gap-6">
-            <BellIcon className="w-5 h-5 lg:w-6 lg:h-6 cursor-pointer text-gray-900" />
-
-            <div className="hidden sm:flex items-center gap-3 cursor-pointer">
-              <Avatar className="w-[30px] h-[30px]">
-                <AvatarImage src="/ellipse-1.svg" alt="User" />
-                <AvatarFallback>U</AvatarFallback>
-              </Avatar>
-              <span className="hidden md:inline font-['Inter',Helvetica] font-normal text-black text-[15px] whitespace-nowrap">
-                User
-              </span>
-              <ChevronDownIcon className="w-5 h-5 lg:w-6 lg:h-6 text-gray-900" />
-            </div>
-          </div>
-        </header>
-
-        <div className="flex-1 flex flex-col p-4 lg:p-6">
-          {/* Image Gallery */}
-          <div className="flex-1 overflow-y-auto mb-4">
-            {loading ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#f9831b]"></div>
-              </div>
-            ) : filteredImages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center">
-                <PlayCircle className="w-24 h-24 text-gray-300 mb-4" />
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">No media available</h3>
-                <p className="text-gray-500">
-                  {selectedCategoryId === 'all' 
-                    ? 'No media has been uploaded yet' 
-                    : 'No media in this category'}
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                {filteredImages.map((image, index) => (
-                  <div
-                    key={image.id}
-                    onClick={() => openFullscreen(image, index)}
-                    className="relative aspect-square rounded-lg overflow-hidden cursor-pointer group bg-gray-100"
-                  >
-                    <Image
-                      src={image.image_url}
-                      alt={image.product_name}
-                      fill
-                      className="object-cover transition-transform group-hover:scale-110"
-                    />
-                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-end p-3">
-                      <div className="text-white transform translate-y-4 group-hover:translate-y-0 transition-transform">
-                        <p className="font-semibold text-sm">{image.product_name}</p>
-                        <p className="text-xs opacity-80">{image.category_name}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Category Filter - Bottom Bar */}
-          <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
-            <div className="flex items-center gap-3 overflow-x-auto pb-2">
-              <button
-                onClick={() => setSelectedCategoryId('all')}
-                className={`px-6 py-2 rounded-full whitespace-nowrap font-medium transition-all ${
-                  selectedCategoryId === 'all'
-                    ? 'bg-[#f9831b] text-white shadow-md'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                All Categories
-              </button>
-              {categories.map((category) => (
-                <button
-                  key={category.id}
-                  onClick={() => setSelectedCategoryId(category.id)}
-                  className={`px-6 py-2 rounded-full whitespace-nowrap font-medium transition-all ${
-                    selectedCategoryId === category.id
-                      ? 'bg-[#f9831b] text-white shadow-md'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {category.name}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </main>
-
-      {/* Fullscreen Image Viewer */}
-      {fullscreenImage && (
-        <div className="fixed inset-0 z-[100] bg-black bg-opacity-95 flex items-center justify-center">
-          <button
-            onClick={closeFullscreen}
-            className="absolute top-4 right-4 p-2 rounded-full bg-white bg-opacity-20 hover:bg-opacity-30 transition-colors"
-          >
-            <X className="w-8 h-8 text-white" />
-          </button>
-
-          <button
-            onClick={() => navigateImage('prev')}
-            className="absolute left-4 p-2 rounded-full bg-white bg-opacity-20 hover:bg-opacity-30 transition-colors"
-          >
-            <ChevronLeft className="w-8 h-8 text-white" />
-          </button>
-
-          <button
-            onClick={() => navigateImage('next')}
-            className="absolute right-4 p-2 rounded-full bg-white bg-opacity-20 hover:bg-opacity-30 transition-colors"
-          >
-            <ChevronRight className="w-8 h-8 text-white" />
-          </button>
-
-          <div className="relative w-full h-full max-w-6xl max-h-[90vh] p-8">
+        ) : currentImage ? (
+          <div className="relative w-full h-full flex items-center justify-center">
             <div className="relative w-full h-full">
               <Image
-                src={fullscreenImage.image_url}
-                alt={fullscreenImage.product_name}
+                src={currentImage.image_url}
+                alt={currentImage.product_name}
                 fill
-                className="object-contain"
+                className="object-contain md:object-cover"
+                priority
+                sizes="100vw"
               />
             </div>
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-6">
-              <h2 className="text-white text-2xl font-semibold mb-1">
-                {fullscreenImage.product_name}
-              </h2>
-              <p className="text-white text-lg opacity-80">
-                {fullscreenImage.category_name}
-              </p>
-              <p className="text-white text-sm opacity-60 mt-2">
-                {currentImageIndex + 1} / {images.length}
-              </p>
+          </div>
+        ) : (
+          <div className="relative w-full h-full flex items-center justify-center p-4">
+            <div className="relative w-full h-full max-w-xs sm:max-w-md md:max-w-2xl lg:max-w-4xl max-h-[60vh] sm:max-h-[70vh] md:max-h-[80vh]">
+              <Image
+                src="/dashboard-logo.gif"
+                alt="Dailishaw"
+                fill
+                className="object-contain"
+                unoptimized
+                priority
+                sizes="(max-width: 640px) 100vw, (max-width: 768px) 80vw, (max-width: 1024px) 70vw, 60vw"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom Category & Product Bar */}
+      {isFullscreen ? (
+        /* Fullscreen Mode - Buttons directly on image */
+        <div className="absolute bottom-0 left-0 right-0 z-30 bg-black/35 backdrop-blur-sm">
+          <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 overflow-x-auto px-2 py-1.5 sm:px-3 sm:py-2 md:px-4 md:py-2.5 scrollbar-hide">
+            {categories.map((category) => {
+              const isHome = category.name.trim().toLowerCase() === 'home';
+              const categoryProducts = isHome ? [] : getProductsForCategory(category.id);
+              return (
+                <div key={category.id} className="flex items-center gap-1 sm:gap-1.5">
+                  <button
+                    onClick={() => handleCategoryClick(category.id)}
+                    className={`px-3 py-1 sm:px-3.5 sm:py-1.5 md:px-4 md:py-2 rounded-lg sm:rounded-xl whitespace-nowrap font-semibold text-[11px] sm:text-xs md:text-sm transition-all shadow-xl backdrop-blur-md ${
+                      selectedCategoryId === category.id
+                        ? 'bg-[#f9831b]/90 text-white'
+                        : 'bg-white/80 text-gray-700 hover:bg-white/90 active:scale-95'
+                    }`}
+                  >
+                    {category.name}
+                  </button>
+                  
+                  {/* Product Buttons - Show inline when this category is selected */}
+                  {selectedCategoryId === category.id && !isHome && categoryProducts.length > 0 && (
+                    <>
+                      {categoryProducts.map((product) => (
+                        <button
+                          key={product.id}
+                          onClick={() => handleProductClick(product.id)}
+                          className="px-3 py-1 sm:px-3.5 sm:py-1.5 md:px-4 md:py-2 rounded-lg sm:rounded-xl bg-blue-600/90 backdrop-blur-md text-white font-medium text-[11px] sm:text-xs md:text-sm hover:bg-blue-700/90 active:scale-95 transition-all shadow-xl whitespace-nowrap"
+                        >
+                          {product.name}
+                        </button>
+                      ))}
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        /* Normal Mode - With white bar */
+        <div className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md shadow-xl z-30">
+          <div className="px-2.5 py-1.5 sm:px-3 sm:py-2 md:px-4 md:py-2.5 overflow-x-auto scrollbar-hide">
+            <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2">
+              {categories.map((category) => {
+                const isHome = category.name.trim().toLowerCase() === 'home';
+                const categoryProducts = isHome ? [] : getProductsForCategory(category.id);
+                return (
+                  <div key={category.id} className="flex items-center gap-1 sm:gap-1.5">
+                    <button
+                      onClick={() => handleCategoryClick(category.id)}
+                      className={`px-3 py-1 sm:px-3.5 sm:py-1.5 md:px-4 md:py-2 rounded-lg sm:rounded-xl whitespace-nowrap font-semibold text-[11px] sm:text-xs md:text-sm transition-all shadow-md ${
+                        selectedCategoryId === category.id
+                          ? 'bg-gradient-to-r from-[#f9831b] to-[#ff9f3d] text-white'
+                          : 'bg-white text-gray-700 hover:bg-gray-100 active:scale-95 border border-gray-200 sm:border-2'
+                      }`}
+                    >
+                      {category.name}
+                    </button>
+                    
+                    {/* Product Buttons - Show inline when this category is selected */}
+                    {selectedCategoryId === category.id && !isHome && categoryProducts.length > 0 && (
+                      <>
+                        {categoryProducts.map((product) => (
+                          <button
+                            key={product.id}
+                            onClick={() => handleProductClick(product.id)}
+                            className="px-3 py-1 sm:px-3.5 sm:py-1.5 md:px-4 md:py-2 rounded-lg sm:rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium text-[11px] sm:text-xs md:text-sm hover:from-blue-600 hover:to-blue-700 active:scale-95 transition-all shadow-md hover:shadow-lg whitespace-nowrap"
+                          >
+                            {product.name}
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }

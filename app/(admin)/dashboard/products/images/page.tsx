@@ -28,7 +28,7 @@ import { logoutAction } from '@/app/actions/logout';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { createClient } from '@/lib/supabase/client';
-import { uploadProductImage, deleteProductImage } from './actions';
+import { uploadProductImage, deleteProductImage, ensureDefaultProduct } from './actions';
 import {
   Dialog,
   DialogContent,
@@ -177,7 +177,19 @@ export default function UploadProductImagesPage() {
 
       if (error) throw error;
       
-      const productList = data || [];
+      let productList = data || [];
+
+      // If category is "Home" and has no products, create a default one
+      const selectedCategory = categories.find(c => c.id === selectedCategoryId);
+      const isHomeCategory = selectedCategory?.name?.trim().toLowerCase() === 'home';
+
+      if (isHomeCategory && productList.length === 0) {
+        const { success, product } = await ensureDefaultProduct(selectedCategoryId);
+        if (success && product) {
+          productList = [product];
+        }
+      }
+
       setProducts(productList);
       
       // Fetch images for all products immediately

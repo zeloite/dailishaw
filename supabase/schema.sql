@@ -33,6 +33,7 @@ create table products (
   category_id uuid references product_categories(id) on delete cascade,
   name text not null,
   description text,
+  sort_order integer default 0,
   is_active boolean default true,
   created_by uuid references auth.users,
   created_at timestamp default now(),

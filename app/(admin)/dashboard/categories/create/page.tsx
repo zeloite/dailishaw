@@ -14,6 +14,8 @@ import {
   ArrowLeft,
   Trash2,
   FolderOpen,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import {
   Avatar,
@@ -26,7 +28,9 @@ import { logoutAction } from '@/app/actions/logout';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Textarea } from '@/components/ui/Textarea';
+import { Dialog, DialogContent, DialogHeader, DialogFooter } from '@/components/ui/Dialog';
 import { createClient } from '@/lib/supabase/client';
+import { updateCategorySortOrder, getCategories as fetchCategoriesFromServer, deleteCategory } from '../actions';
 
 const navigationItems = [
   {
@@ -66,6 +70,9 @@ export default function CreateCategoryPage() {
   const [description, setDescription] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [fetchingCategories, setFetchingCategories] = useState(true);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [deletingCategory, setDeletingCategory] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -79,7 +86,7 @@ export default function CreateCategoryPage() {
       const { data, error } = await supabase
         .from('product_categories')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('sort_order', { ascending: true });
 
       if (error) throw error;
       setCategories(data || []);
@@ -87,6 +94,48 @@ export default function CreateCategoryPage() {
       console.error('Error fetching categories:', error);
     } finally {
       setFetchingCategories(false);
+    }
+  };
+
+  const handleMoveCategory = async (categoryId: string, direction: 'up' | 'down') => {
+    try {
+      console.log(`Moving category ${categoryId} ${direction}`);
+      const result = await updateCategorySortOrder(categoryId, direction);
+      console.log('Move result:', result);
+      if (result.success) {
+        await fetchCategories();
+      } else {
+        console.error('Failed to move category:', result);
+      }
+    } catch (error) {
+      console.error('Error moving category:', error);
+    }
+  };
+
+  const handleDeleteCategory = async (categoryId: string, categoryName: string) => {
+    setCategoryToDelete({ id: categoryId, name: categoryName });
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteCategory = async () => {
+    if (!categoryToDelete) return;
+
+    try {
+      setDeletingCategory(true);
+      console.log(`Deleting category ${categoryToDelete.id}`);
+      const result = await deleteCategory(categoryToDelete.id);
+      console.log('Delete result:', result);
+      if (result.success) {
+        setDeleteDialogOpen(false);
+        setCategoryToDelete(null);
+        await fetchCategories();
+      } else {
+        console.error('Failed to delete category:', result);
+      }
+    } catch (error) {
+      console.error('Error deleting category:', error);
+    } finally {
+      setDeletingCategory(false);
     }
   };
 
@@ -373,7 +422,7 @@ export default function CreateCategoryPage() {
                   </div>
                 ) : (
                   <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
-                    {categories.map((category) => (
+                    {categories.map((category, index) => (
                       <div 
                         key={category.id} 
                         className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
@@ -395,10 +444,31 @@ export default function CreateCategoryPage() {
                           </p>
                         )}
                         
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-400">
-                            {new Date(category.created_at).toLocaleDateString()}
-                          </span>
+                        <div className="flex items-center justify-between flex-wrap gap-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-400">
+                              {new Date(category.created_at).toLocaleDateString()}
+                            </span>
+                            
+                            <div className="flex items-center gap-1 ml-2">
+                              <button
+                                onClick={() => handleMoveCategory(category.id, 'up')}
+                                disabled={index === 0 || fetchingCategories}
+                                className="p-1.5 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                title="Move up"
+                              >
+                                <ArrowUp className="w-4 h-4 text-blue-600" />
+                              </button>
+                              <button
+                                onClick={() => handleMoveCategory(category.id, 'down')}
+                                disabled={index === categories.length - 1 || fetchingCategories}
+                                className="p-1.5 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                title="Move down"
+                              >
+                                <ArrowDown className="w-4 h-4 text-blue-600" />
+                              </button>
+                            </div>
+                          </div>
                           
                           <div className="flex gap-2">
                             <Link href={`/dashboard/products/create?category=${category.id}`}>
@@ -413,6 +483,7 @@ export default function CreateCategoryPage() {
                             <Button 
                               variant="ghost" 
                               size="sm"
+                              onClick={() => handleDeleteCategory(category.id, category.name)}
                               className="text-gray-500 hover:text-red-600 hover:bg-red-50"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -428,6 +499,40 @@ export default function CreateCategoryPage() {
           </div>
         </div>
       </main>
+
+      {/* Delete Category Dialog */}
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <h2 className="text-xl font-semibold text-gray-900">Delete Category</h2>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-gray-700 mb-2">
+              Are you sure you want to delete <span className="font-semibold">"{categoryToDelete?.name}"</span>?
+            </p>
+            <p className="text-gray-500 text-sm">
+              This action will delete all products and images associated with this category. This cannot be undone.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+              disabled={deletingCategory}
+              className="border-gray-300 text-gray-700 hover:bg-gray-100"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmDeleteCategory}
+              disabled={deletingCategory}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deletingCategory ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

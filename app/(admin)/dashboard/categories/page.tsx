@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -10,6 +10,8 @@ import {
   MenuIcon,
   ChevronLeftIcon,
   LogOutIcon,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import {
   Avatar,
@@ -20,6 +22,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { logoutAction } from '@/app/actions/logout';
 import { Input } from '@/components/ui/Input';
+import { updateCategorySortOrder, getCategories } from './actions';
 
 const navigationItems = [
   {
@@ -68,6 +71,28 @@ const recentActivities = [
 
 export default function CategoriesPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  const fetchCategories = async () => {
+    setLoading(true);
+    const cats = await getCategories();
+    setCategories(cats);
+    setLoading(false);
+  };
+
+  const handleMoveCategory = async (categoryId: string, direction: 'up' | 'down') => {
+    setLoading(true);
+    const result = await updateCategorySortOrder(categoryId, direction);
+    if (result.success) {
+      await fetchCategories();
+    }
+    setLoading(false);
+  };
 
   const handleLogout = async () => {
     await logoutAction();
@@ -216,6 +241,54 @@ export default function CategoriesPage() {
           </div>
 
           <Card className="bg-white rounded-[10px] shadow-[0px_2px_4px_#bcbcbc33]">
+            <CardContent className="p-6">
+              <h2 className="font-['Inter',Helvetica] font-medium text-black text-lg mb-6">
+                Arrange Categories
+              </h2>
+              {loading ? (
+                <p className="text-gray-500">Loading categories...</p>
+              ) : categories.length === 0 ? (
+                <p className="text-gray-500">No categories found. Create one to get started.</p>
+              ) : (
+                <div className="space-y-3">
+                  {categories.map((category, index) => (
+                    <div
+                      key={category.id}
+                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="flex-1">
+                        <h3 className="font-['Inter',Helvetica] font-medium text-black text-base">
+                          {category.name}
+                        </h3>
+                        <p className="text-sm text-gray-500">Order: {category.sort_order}</p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleMoveCategory(category.id, 'up')}
+                          disabled={index === 0 || loading}
+                          className="p-2 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          title="Move up"
+                        >
+                          <ArrowUp className="w-5 h-5 text-blue-600" />
+                        </button>
+                        <button
+                          onClick={() => handleMoveCategory(category.id, 'down')}
+                          disabled={index === categories.length - 1 || loading}
+                          className="p-2 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          title="Move down"
+                        >
+                          <ArrowDown className="w-5 h-5 text-blue-600" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white rounded-[10px] shadow-[0px_2px_4px_#bcbcbc33] mt-6">
             <CardContent className="p-6">
               <h2 className="font-['Inter',Helvetica] font-medium text-black text-lg mb-6">
                 Recent Activity
