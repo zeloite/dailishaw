@@ -1,0 +1,202 @@
+'use client';
+
+import { useState } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
+import {
+  BellIcon,
+  ChevronDownIcon,
+  SearchIcon,
+  MenuIcon,
+  ChevronLeftIcon,
+  LogOutIcon,
+  PlayCircle,
+  TrendingUp,
+} from 'lucide-react';
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from '@/components/ui/Avatar';
+import { logoutAction } from '@/app/actions/logout';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
+
+const navigationItems = [
+  {
+    icon: PlayCircle,
+    label: 'Media Viewer',
+    active: false,
+    href: '/user-dashboard/media',
+  },
+  {
+    icon: TrendingUp,
+    label: 'Expense Management',
+    active: false,
+    href: '/user-dashboard/expenses',
+  },
+];
+
+const actionCards = [
+  {
+    icon: PlayCircle,
+    title: 'Media Viewer',
+    description: 'View and browse all media content',
+    href: '/user-dashboard/media',
+  },
+  {
+    icon: TrendingUp,
+    title: 'Expense Management',
+    description: 'Manage and track your expenses',
+    href: '/user-dashboard/expenses',
+  },
+];
+
+export default function UserDashboard() {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  const handleLogout = async () => {
+    await logoutAction();
+  };
+
+  return (
+    <div className="flex min-h-screen bg-[#f7f8fa]">
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      <aside
+        className={`
+        fixed inset-y-0 left-0 z-50
+        w-[264px] bg-white flex-shrink-0 flex flex-col h-screen overflow-hidden
+        transition-all duration-300 ease-in-out
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}
+      >
+        <div className="flex items-center justify-between px-4 pt-4">
+          <Link href="/user-dashboard" className="relative w-[200px] h-[80px] cursor-pointer">
+            <Image
+              src="/dashboard-logo.gif"
+              alt="Dailishaw Logo"
+              fill
+              className="object-contain"
+              priority
+              unoptimized
+            />
+          </Link>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="p-2 rounded-md hover:bg-gray-100"
+          >
+            <ChevronLeftIcon className="w-6 h-6 text-gray-900" />
+          </button>
+        </div>
+
+        <nav className="mt-8 flex-1">
+          {navigationItems.map((item, index) => (
+            <Link
+              key={index}
+              href={item.href}
+              className="relative flex items-center gap-7 px-8 py-4 cursor-pointer hover:bg-gray-50"
+            >
+              {item.active && (
+                <div className="absolute left-0 top-0 w-1 h-full bg-[#fa841c]" />
+              )}
+              <item.icon 
+                className={`w-6 h-6 ${
+                  item.active ? 'text-[#6aabfd]' : 'text-[#5d5d5d]'
+                }`}
+              />
+              <span
+                className={`font-['Inter',Helvetica] font-normal text-base ${
+                  item.active ? 'text-[#6aabfd]' : 'text-[#5d5d5d]'
+                }`}
+              >
+                {item.label}
+              </span>
+            </Link>
+          ))}
+        </nav>
+
+        <div className="border-t border-gray-200 p-4">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 rounded-lg transition-colors"
+          >
+            <LogOutIcon className="w-6 h-6 text-[#5d5d5d]" />
+            <span className="font-['Inter',Helvetica] font-normal text-base text-[#5d5d5d]">
+              Logout
+            </span>
+          </button>
+        </div>
+      </aside>
+
+      <main className={`flex-1 flex flex-col w-full transition-all duration-300 ${sidebarOpen ? 'lg:ml-[264px]' : 'ml-0'}`}>
+        <header className="h-20 bg-white shadow-[0px_2px_4px_#d9d9d940] flex items-center px-4 lg:px-6 gap-3 lg:gap-6">
+          {!sidebarOpen && (
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="p-2 rounded-md hover:bg-gray-100"
+            >
+              <MenuIcon className="w-6 h-6 text-gray-900" />
+            </button>
+          )}
+
+          <h1 className="font-['Inter',Helvetica] font-medium text-black text-xl lg:text-[32px] whitespace-nowrap">
+            User Dashboard
+          </h1>
+
+          <div className="hidden md:flex flex-1 max-w-[327px] relative ml-6">
+            <div className="relative w-full">
+              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-6 h-6 text-gray-400" />
+              <Input
+                type="text"
+                placeholder="Type to Search"
+                className="w-full h-[41px] pl-12 pr-4 bg-white rounded-[10px] border border-black font-['Inter',Helvetica] font-medium text-[15px] placeholder:text-[#b8b3b3]"
+              />
+            </div>
+          </div>
+
+          <div className="ml-auto flex items-center gap-3 lg:gap-6">
+            <BellIcon className="w-5 h-5 lg:w-6 lg:h-6 cursor-pointer text-gray-900" />
+
+            <div className="hidden sm:flex items-center gap-3 cursor-pointer">
+              <Avatar className="w-[30px] h-[30px]">
+                <AvatarImage src="/ellipse-1.svg" alt="User" />
+                <AvatarFallback>U</AvatarFallback>
+              </Avatar>
+              <span className="hidden md:inline font-['Inter',Helvetica] font-normal text-black text-[15px] whitespace-nowrap">
+                User
+              </span>
+              <ChevronDownIcon className="w-5 h-5 lg:w-6 lg:h-6 text-gray-900" />
+            </div>
+          </div>
+        </header>
+
+        <div className="flex-1 p-4 lg:p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
+            {actionCards.map((card, index) => (
+              <Link key={index} href={card.href}>
+                <Card className="bg-white rounded-[10px] shadow-[0px_2px_4px_#bcbcbc33] cursor-pointer hover:shadow-lg transition-shadow">
+                  <CardContent className="p-8 flex flex-col items-center justify-center min-h-[300px]">
+                    <card.icon className="w-24 h-24 text-[#f9831b] mb-6" />
+                    <h3 className="font-['Inter',Helvetica] font-semibold text-black text-xl mb-3">
+                      {card.title}
+                    </h3>
+                    <p className="font-['Inter',Helvetica] font-normal text-[#5d5d5d] text-base text-center">
+                      {card.description}
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
