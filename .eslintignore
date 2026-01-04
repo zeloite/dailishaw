@@ -1,0 +1,4 @@
+# Broken and old files
+app/(admin)/dashboard/users/active/page_broken2.tsx
+app/(admin)/dashboard/users/share/page_broken.tsx
+app/(user)/user-dashboard/page_old.tsx

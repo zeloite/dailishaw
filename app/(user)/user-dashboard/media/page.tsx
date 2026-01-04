@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef } from 'react';
-import Image from 'next/image';
-import Link from 'next/link';
+import { useState, useEffect, useRef } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import {
   Minimize,
   Maximize,
@@ -10,9 +10,10 @@ import {
   ArrowLeft,
   ArrowUp,
   ArrowDown,
-} from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
-import { updateProductSortOrder } from '@/app/(admin)/dashboard/products/actions';
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { updateProductSortOrder } from "@/app/(admin)/dashboard/products/actions";
+import { SkeletonImageGrid } from "@/components/ui/Skeleton";
 
 // Hide scrollbar but keep functionality
 const globalStyles = `
@@ -48,9 +49,13 @@ interface ProductImage {
 export default function UserMediaPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
+    null
+  );
   const [images, setImages] = useState<ProductImage[]>([]);
-  const [currentImageIndex, setCurrentImageIndex] = useState<number | null>(null);
+  const [currentImageIndex, setCurrentImageIndex] = useState<number | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
@@ -73,14 +78,15 @@ export default function UserMediaPage() {
       setIsFullscreen(!!document.fullscreenElement);
     };
 
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
   const enterFullscreen = () => {
     setTimeout(() => {
-      containerRef.current?.requestFullscreen().catch(err => {
-        console.log('Fullscreen request failed:', err);
+      containerRef.current?.requestFullscreen().catch((err) => {
+        console.log("Fullscreen request failed:", err);
       });
     }, 100);
   };
@@ -103,15 +109,15 @@ export default function UserMediaPage() {
     try {
       const supabase = createClient();
       const { data, error } = await supabase
-        .from('product_categories')
-        .select('id, name')
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true });
+        .from("product_categories")
+        .select("id, name")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
 
       if (error) throw error;
       setCategories(data || []);
     } catch (error) {
-      console.error('Error fetching categories:', error);
+      console.error("Error fetching categories:", error);
     }
   };
 
@@ -119,15 +125,15 @@ export default function UserMediaPage() {
     try {
       const supabase = createClient();
       const { data, error } = await supabase
-        .from('products')
-        .select('id, name, category_id')
-        .eq('is_active', true)
-        .order('name', { ascending: true });
+        .from("products")
+        .select("id, name, category_id")
+        .eq("is_active", true)
+        .order("name", { ascending: true });
 
       if (error) throw error;
       setAllProducts(data || []);
     } catch (error) {
-      console.error('Error fetching products:', error);
+      console.error("Error fetching products:", error);
     }
   };
 
@@ -135,10 +141,11 @@ export default function UserMediaPage() {
     setLoading(true);
     try {
       const supabase = createClient();
-      
+
       const { data, error } = await supabase
-        .from('product_images')
-        .select(`
+        .from("product_images")
+        .select(
+          `
           id,
           image_url,
           product_id,
@@ -149,8 +156,9 @@ export default function UserMediaPage() {
               name
             )
           )
-        `)
-        .order('created_at', { ascending: false });
+        `
+        )
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
 
@@ -165,7 +173,7 @@ export default function UserMediaPage() {
 
       setImages(transformedImages);
     } catch (error) {
-      console.error('Error fetching images:', error);
+      console.error("Error fetching images:", error);
     } finally {
       setLoading(false);
     }
@@ -173,22 +181,25 @@ export default function UserMediaPage() {
 
   const getProductsForCategory = (categoryId: string): Product[] => {
     // Filter products by category and only include those with images
-    return allProducts.filter(product => 
-      product.category_id === categoryId &&
-      images.some(img => img.product_id === product.id)
+    return allProducts.filter(
+      (product) =>
+        product.category_id === categoryId &&
+        images.some((img) => img.product_id === product.id)
     );
   };
 
   const handleCategoryClick = (categoryId: string) => {
-    const category = categories.find(c => c.id === categoryId);
-    const isHome = category?.name?.trim().toLowerCase() === 'home';
+    const category = categories.find((c) => c.id === categoryId);
+    const isHome = category?.name?.trim().toLowerCase() === "home";
 
     if (isHome) {
       setSelectedCategoryId(categoryId);
       // Jump directly to first image of Home category
-      const homeImages = images.filter(img => img.category_id === categoryId);
+      const homeImages = images.filter((img) => img.category_id === categoryId);
       if (homeImages.length > 0) {
-        const firstIndex = images.findIndex(img => img.id === homeImages[0].id);
+        const firstIndex = images.findIndex(
+          (img) => img.id === homeImages[0].id
+        );
         setCurrentImageIndex(firstIndex);
       }
       return;
@@ -203,7 +214,7 @@ export default function UserMediaPage() {
   };
 
   const handleProductClick = (productId: string) => {
-    const imageIndex = images.findIndex(img => img.product_id === productId);
+    const imageIndex = images.findIndex((img) => img.product_id === productId);
     if (imageIndex !== -1) {
       setCurrentImageIndex(imageIndex);
     }
@@ -220,31 +231,43 @@ export default function UserMediaPage() {
 
   const onTouchEnd = () => {
     if (!touchStart || !touchEnd) return;
-    
+
     const distance = touchStart - touchEnd;
     const isLeftSwipe = distance > minSwipeDistance;
     const isRightSwipe = distance < -minSwipeDistance;
 
     if (currentImageIndex !== null && selectedCategoryId) {
       // Get filtered images for current category
-      const categoryImages = images.filter(img => img.category_id === selectedCategoryId);
-      const currentIndexInCategory = categoryImages.findIndex(img => img.id === images[currentImageIndex].id);
+      const categoryImages = images.filter(
+        (img) => img.category_id === selectedCategoryId
+      );
+      const currentIndexInCategory = categoryImages.findIndex(
+        (img) => img.id === images[currentImageIndex].id
+      );
 
       if (isLeftSwipe) {
         // Moving to next image
         if (currentIndexInCategory < categoryImages.length - 1) {
           // Next image in same category
-          const nextGlobalIndex = images.findIndex(img => img.id === categoryImages[currentIndexInCategory + 1].id);
+          const nextGlobalIndex = images.findIndex(
+            (img) => img.id === categoryImages[currentIndexInCategory + 1].id
+          );
           setCurrentImageIndex(nextGlobalIndex);
         } else {
           // At end of category, go to next category
-          const currentCategoryIndex = categories.findIndex(cat => cat.id === selectedCategoryId);
+          const currentCategoryIndex = categories.findIndex(
+            (cat) => cat.id === selectedCategoryId
+          );
           if (currentCategoryIndex < categories.length - 1) {
             const nextCategoryId = categories[currentCategoryIndex + 1].id;
-            const nextCategoryImages = images.filter(img => img.category_id === nextCategoryId);
+            const nextCategoryImages = images.filter(
+              (img) => img.category_id === nextCategoryId
+            );
             if (nextCategoryImages.length > 0) {
               setSelectedCategoryId(nextCategoryId);
-              const firstImageIndex = images.findIndex(img => img.id === nextCategoryImages[0].id);
+              const firstImageIndex = images.findIndex(
+                (img) => img.id === nextCategoryImages[0].id
+              );
               setCurrentImageIndex(firstImageIndex);
             }
           }
@@ -255,17 +278,27 @@ export default function UserMediaPage() {
         // Moving to previous image
         if (currentIndexInCategory > 0) {
           // Previous image in same category
-          const prevGlobalIndex = images.findIndex(img => img.id === categoryImages[currentIndexInCategory - 1].id);
+          const prevGlobalIndex = images.findIndex(
+            (img) => img.id === categoryImages[currentIndexInCategory - 1].id
+          );
           setCurrentImageIndex(prevGlobalIndex);
         } else {
           // At start of category, go to previous category
-          const currentCategoryIndex = categories.findIndex(cat => cat.id === selectedCategoryId);
+          const currentCategoryIndex = categories.findIndex(
+            (cat) => cat.id === selectedCategoryId
+          );
           if (currentCategoryIndex > 0) {
             const prevCategoryId = categories[currentCategoryIndex - 1].id;
-            const prevCategoryImages = images.filter(img => img.category_id === prevCategoryId);
+            const prevCategoryImages = images.filter(
+              (img) => img.category_id === prevCategoryId
+            );
             if (prevCategoryImages.length > 0) {
               setSelectedCategoryId(prevCategoryId);
-              const lastImageIndex = images.findIndex(img => img.id === prevCategoryImages[prevCategoryImages.length - 1].id);
+              const lastImageIndex = images.findIndex(
+                (img) =>
+                  img.id ===
+                  prevCategoryImages[prevCategoryImages.length - 1].id
+              );
               setCurrentImageIndex(lastImageIndex);
             }
           }
@@ -282,158 +315,193 @@ export default function UserMediaPage() {
     }
   };
 
-  const currentImage = currentImageIndex !== null ? images[currentImageIndex] : null;
+  const currentImage =
+    currentImageIndex !== null ? images[currentImageIndex] : null;
 
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: globalStyles }} />
-      <div 
+      <div
         ref={containerRef}
         className="relative w-full h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black overflow-hidden touch-none"
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
-      {/* Exit Fullscreen Button */}
-      <button
-        onClick={toggleFullscreen}
-        className="absolute top-3 right-3 sm:top-4 sm:right-4 md:top-6 md:right-6 z-50 p-2 sm:p-2.5 md:p-3 rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all"
-      >
-        {isFullscreen ? (
-          <Minimize className="w-5 h-5 sm:w-5 sm:h-5 md:w-6 md:h-6 text-white" />
-        ) : (
-          <Maximize className="w-5 h-5 sm:w-5 sm:h-5 md:w-6 md:h-6 text-white" />
-        )}
-      </button>
+        {/* Exit Fullscreen Button */}
+        <button
+          onClick={toggleFullscreen}
+          className="absolute top-3 right-3 sm:top-4 sm:right-4 md:top-6 md:right-6 z-50 p-2 sm:p-2.5 md:p-3 rounded-full bg-gray-900/80 backdrop-blur-sm hover:bg-gray-900/90 transition-all shadow-lg"
+        >
+          {isFullscreen ? (
+            <Minimize className="w-5 h-5 sm:w-5 sm:h-5 md:w-6 md:h-6 text-white" />
+          ) : (
+            <Maximize className="w-5 h-5 sm:w-5 sm:h-5 md:w-6 md:h-6 text-white" />
+          )}
+        </button>
 
-      {/* Back Button */}
-      <Link
-        href="/user-dashboard"
-        className="absolute top-3 left-3 sm:top-4 sm:left-4 md:top-6 md:left-6 z-50 p-2 sm:p-2.5 md:p-3 rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all flex items-center gap-2 text-white"
-      >
-        <ArrowLeft className="w-5 h-5 sm:w-5 sm:h-5 md:w-6 md:h-6" />
-        <span className="hidden sm:inline text-sm font-medium">Back</span>
-      </Link>
+        {/* Back Button */}
+        <Link
+          href="/user-dashboard"
+          className="absolute top-3 left-3 sm:top-4 sm:left-4 md:top-6 md:left-6 z-50 p-2 sm:p-2.5 md:p-3 rounded-full bg-gray-900/80 backdrop-blur-sm hover:bg-gray-900/90 transition-all flex items-center gap-2 text-white shadow-lg"
+        >
+          <ArrowLeft className="w-5 h-5 sm:w-5 sm:h-5 md:w-6 md:h-6" />
+          <span className="hidden sm:inline text-sm font-medium">Back</span>
+        </Link>
 
-      {/* Main Content Area - Fullscreen */}
-      <div className="relative w-full h-[calc(100vh-44px)] sm:h-[calc(100vh-48px)] md:h-[calc(100vh-56px)] flex items-center justify-center">
-        {loading ? (
-          <div className="flex flex-col items-center">
-            <div className="animate-spin rounded-full h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 border-b-4 border-[#f9831b]"></div>
-            <p className="text-white mt-4 text-sm sm:text-base md:text-lg">Loading media...</p>
-          </div>
-        ) : currentImage ? (
-          <div className="relative w-full h-full flex items-center justify-center">
-            <div className="relative w-full h-full">
-              <Image
-                src={currentImage.image_url}
-                alt={currentImage.product_name}
-                fill
-                className="object-contain md:object-cover"
-                priority
-                sizes="100vw"
-              />
+        {/* Main Content Area - Fullscreen */}
+        <div className="relative w-full h-[calc(100vh-60px)] sm:h-[calc(100vh-65px)] md:h-[calc(100vh-70px)] flex items-center justify-center overflow-hidden">
+          {loading ? (
+            <div className="flex flex-col items-center">
+              <div className="w-full max-w-4xl px-4">
+                <SkeletonImageGrid />
+              </div>
+              <p className="text-white mt-4 text-sm sm:text-base md:text-lg">
+                Loading media...
+              </p>
             </div>
-          </div>
-        ) : (
-          <div className="relative w-full h-full flex items-center justify-center p-4">
-            <div className="relative w-full h-full max-w-xs sm:max-w-md md:max-w-2xl lg:max-w-4xl max-h-[60vh] sm:max-h-[70vh] md:max-h-[80vh]">
-              <Image
-                src="/dashboard-logo.gif"
-                alt="Dailishaw"
-                fill
-                className="object-contain"
-                unoptimized
-                priority
-                sizes="(max-width: 640px) 100vw, (max-width: 768px) 80vw, (max-width: 1024px) 70vw, 60vw"
-              />
+          ) : currentImage ? (
+            <div className="relative w-full h-full flex items-center justify-center">
+              <div className="relative w-full h-full max-h-full">
+                <Image
+                  src={currentImage.image_url}
+                  alt={currentImage.product_name}
+                  fill
+                  className="object-contain"
+                  priority
+                  sizes="100vw"
+                />
+              </div>
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* Bottom Category & Product Bar */}
-      {isFullscreen ? (
-        /* Fullscreen Mode - Buttons directly on image */
-        <div className="absolute bottom-0 left-0 right-0 z-30 bg-black/35 backdrop-blur-sm">
-          <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 overflow-x-auto px-2 py-1.5 sm:px-3 sm:py-2 md:px-4 md:py-2.5 scrollbar-hide">
-            {categories.map((category) => {
-              const isHome = category.name.trim().toLowerCase() === 'home';
-              const categoryProducts = isHome ? [] : getProductsForCategory(category.id);
-              return (
-                <div key={category.id} className="flex items-center gap-1 sm:gap-1.5">
-                  <button
-                    onClick={() => handleCategoryClick(category.id)}
-                    className={`px-3 py-1 sm:px-3.5 sm:py-1.5 md:px-4 md:py-2 rounded-lg sm:rounded-xl whitespace-nowrap font-semibold text-[11px] sm:text-xs md:text-sm transition-all shadow-xl backdrop-blur-md ${
-                      selectedCategoryId === category.id
-                        ? 'bg-[#f9831b]/90 text-white'
-                        : 'bg-white/80 text-gray-700 hover:bg-white/90 active:scale-95'
-                    }`}
-                  >
-                    {category.name}
-                  </button>
-                  
-                  {/* Product Buttons - Show inline when this category is selected */}
-                  {selectedCategoryId === category.id && !isHome && categoryProducts.length > 0 && (
-                    <>
-                      {categoryProducts.map((product) => (
-                        <button
-                          key={product.id}
-                          onClick={() => handleProductClick(product.id)}
-                          className="px-3 py-1 sm:px-3.5 sm:py-1.5 md:px-4 md:py-2 rounded-lg sm:rounded-xl bg-blue-600/90 backdrop-blur-md text-white font-medium text-[11px] sm:text-xs md:text-sm hover:bg-blue-700/90 active:scale-95 transition-all shadow-xl whitespace-nowrap"
-                        >
-                          {product.name}
-                        </button>
-                      ))}
-                    </>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          ) : (
+            <div className="relative w-full h-full flex items-center justify-center p-4">
+              <div className="relative w-full h-full max-w-xs sm:max-w-md md:max-w-2xl lg:max-w-4xl">
+                <Image
+                  src="/dashboard-logo.gif"
+                  alt="Dailishaw"
+                  fill
+                  className="object-contain"
+                  unoptimized
+                  priority
+                  sizes="(max-width: 640px) 100vw, (max-width: 768px) 80vw, (max-width: 1024px) 70vw, 60vw"
+                />
+              </div>
+            </div>
+          )}
         </div>
-      ) : (
-        /* Normal Mode - With white bar */
-        <div className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md shadow-xl z-30">
-          <div className="px-2.5 py-1.5 sm:px-3 sm:py-2 md:px-4 md:py-2.5 overflow-x-auto scrollbar-hide">
-            <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2">
+
+        {/* Bottom Category & Product Bar */}
+        {isFullscreen ? (
+          /* Fullscreen Mode - Buttons directly on image */
+          <div className="absolute bottom-0 left-0 right-0 z-30 bg-black/50 backdrop-blur-md border-t border-white/10">
+            <div className="flex items-center gap-2 sm:gap-2.5 md:gap-3 overflow-x-auto px-3 py-2 sm:px-4 sm:py-2.5 md:px-5 md:py-3 scrollbar-hide">
               {categories.map((category) => {
-                const isHome = category.name.trim().toLowerCase() === 'home';
-                const categoryProducts = isHome ? [] : getProductsForCategory(category.id);
+                const isHome = category.name.trim().toLowerCase() === "home";
+                const categoryProducts = isHome
+                  ? []
+                  : getProductsForCategory(category.id);
                 return (
-                  <div key={category.id} className="flex items-center gap-1 sm:gap-1.5">
+                  <div
+                    key={category.id}
+                    className="flex items-center gap-1.5 sm:gap-2"
+                  >
                     <button
                       onClick={() => handleCategoryClick(category.id)}
-                      className={`px-3 py-1 sm:px-3.5 sm:py-1.5 md:px-4 md:py-2 rounded-lg sm:rounded-xl whitespace-nowrap font-semibold text-[11px] sm:text-xs md:text-sm transition-all shadow-md ${
+                      className={`px-4 py-1.5 sm:px-5 sm:py-2 md:px-6 md:py-2.5 rounded-full whitespace-nowrap font-bold text-xs sm:text-sm md:text-base transition-all shadow-lg ${
                         selectedCategoryId === category.id
-                          ? 'bg-gradient-to-r from-[#f9831b] to-[#ff9f3d] text-white'
-                          : 'bg-white text-gray-700 hover:bg-gray-100 active:scale-95 border border-gray-200 sm:border-2'
+                          ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white"
+                          : "bg-white/90 text-gray-800 hover:bg-white"
                       }`}
                     >
                       {category.name}
                     </button>
-                    
+
                     {/* Product Buttons - Show inline when this category is selected */}
-                    {selectedCategoryId === category.id && !isHome && categoryProducts.length > 0 && (
-                      <>
-                        {categoryProducts.map((product) => (
-                          <button
-                            key={product.id}
-                            onClick={() => handleProductClick(product.id)}
-                            className="px-3 py-1 sm:px-3.5 sm:py-1.5 md:px-4 md:py-2 rounded-lg sm:rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium text-[11px] sm:text-xs md:text-sm hover:from-blue-600 hover:to-blue-700 active:scale-95 transition-all shadow-md hover:shadow-lg whitespace-nowrap"
-                          >
-                            {product.name}
-                          </button>
-                        ))}
-                      </>
-                    )}
+                    {selectedCategoryId === category.id &&
+                      !isHome &&
+                      categoryProducts.length > 0 && (
+                        <>
+                          {categoryProducts.map((product) => {
+                            const isActiveProduct =
+                              currentImage?.product_id === product.id;
+                            return (
+                              <button
+                                key={product.id}
+                                onClick={() => handleProductClick(product.id)}
+                                className={`px-3 py-1 sm:px-4 sm:py-1.5 md:px-5 md:py-2 rounded-lg text-white font-medium text-[10px] sm:text-xs md:text-sm transition-all shadow-md whitespace-nowrap ${
+                                  isActiveProduct
+                                    ? "bg-gradient-to-r from-green-500 to-green-600"
+                                    : "bg-blue-500/90 backdrop-blur-sm hover:bg-blue-600/90"
+                                }`}
+                              >
+                                {product.name}
+                              </button>
+                            );
+                          })}
+                        </>
+                      )}
                   </div>
                 );
               })}
             </div>
           </div>
-        </div>
-      )}
+        ) : (
+          /* Normal Mode - With white bar */
+          <div className="absolute bottom-0 left-0 right-0 bg-white/98 backdrop-blur-lg shadow-2xl z-30 border-t-2 border-gray-200">
+            <div className="px-3 py-2 sm:px-4 sm:py-2.5 md:px-5 md:py-3 overflow-x-auto scrollbar-hide">
+              <div className="flex items-center gap-2 sm:gap-2.5 md:gap-3">
+                {categories.map((category) => {
+                  const isHome = category.name.trim().toLowerCase() === "home";
+                  const categoryProducts = isHome
+                    ? []
+                    : getProductsForCategory(category.id);
+                  return (
+                    <div
+                      key={category.id}
+                      className="flex items-center gap-1.5 sm:gap-2"
+                    >
+                      <button
+                        onClick={() => handleCategoryClick(category.id)}
+                        className={`px-4 py-1.5 sm:px-5 sm:py-2 md:px-6 md:py-2.5 rounded-full whitespace-nowrap font-bold text-xs sm:text-sm md:text-base transition-all shadow-lg ${
+                          selectedCategoryId === category.id
+                            ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        }`}
+                      >
+                        {category.name}
+                      </button>
+
+                      {/* Product Buttons - Show inline when this category is selected */}
+                      {selectedCategoryId === category.id &&
+                        !isHome &&
+                        categoryProducts.length > 0 && (
+                          <>
+                            {categoryProducts.map((product) => {
+                              const isActiveProduct =
+                                currentImage?.product_id === product.id;
+                              return (
+                                <button
+                                  key={product.id}
+                                  onClick={() => handleProductClick(product.id)}
+                                  className={`px-3 py-1 sm:px-4 sm:py-1.5 md:px-5 md:py-2 rounded-lg text-white font-medium text-[10px] sm:text-xs md:text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap ${
+                                    isActiveProduct
+                                      ? "bg-gradient-to-r from-green-500 to-green-600"
+                                      : "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
+                                  }`}
+                                >
+                                  {product.name}
+                                </button>
+                              );
+                            })}
+                          </>
+                        )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

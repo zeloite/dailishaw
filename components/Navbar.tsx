@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
+import React, { useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
 
 interface NavItem {
   label: string;
@@ -21,22 +21,24 @@ interface NavbarProps {
 }
 
 const defaultNavItems: NavItem[] = [
-  { label: 'Home', href: '/' },
-  { label: 'Payment', href: '/payment' },
-  { label: 'About', href: '/about' },
-  { label: 'Blog', href: '/blog' },
+  { label: "Home", href: "/" },
+  { label: "Payment", href: "/payment" },
+  { label: "About", href: "/about" },
+  { label: "Blog", href: "/blog" },
 ];
 
 export default function Navbar({
   logo,
   navItems = defaultNavItems,
   showAuth = true,
-  className = '',
+  className = "",
 }: NavbarProps) {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className={`flex w-full items-center bg-white dark:bg-gray-900 ${className}`}>
+    <header
+      className={`flex w-full items-center bg-white dark:bg-gray-900 ${className}`}
+    >
       <div className="container mx-auto">
         <div className="relative flex items-center justify-between px-4">
           {/* Logo */}
@@ -46,12 +48,12 @@ export default function Navbar({
                 <>
                   <img
                     src={logo.light}
-                    alt={logo.alt || 'logo'}
+                    alt={logo.alt || "logo"}
                     className="dark:hidden"
                   />
                   <img
                     src={logo.dark}
-                    alt={logo.alt || 'logo'}
+                    alt={logo.alt || "logo"}
                     className="hidden dark:block"
                   />
                 </>
@@ -72,8 +74,8 @@ export default function Navbar({
                 id="navbarToggler"
                 aria-label="Toggle navigation"
                 className={`${
-                  open && 'navbarTogglerActive'
-                } absolute right-4 top-1/2 block -translate-y-1/2 rounded-lg px-3 py-[6px] ring-blue-500 focus:ring-2 lg:hidden`}
+                  open && "navbarTogglerActive"
+                } absolute right-4 top-1/2 block -translate-y-1/2 rounded-lg px-3 py-[6px] ring-orange-500 focus:ring-2 lg:hidden`}
               >
                 <span className="relative my-[6px] block h-[2px] w-[30px] bg-gray-700 dark:bg-white"></span>
                 <span className="relative my-[6px] block h-[2px] w-[30px] bg-gray-700 dark:bg-white"></span>
@@ -84,7 +86,7 @@ export default function Navbar({
               <nav
                 id="navbarCollapse"
                 className={`absolute right-4 top-full z-50 w-full max-w-[250px] rounded-lg bg-white px-6 py-5 shadow-lg dark:bg-gray-800 lg:static lg:block lg:w-full lg:max-w-full lg:shadow-none lg:dark:bg-transparent ${
-                  !open && 'hidden'
+                  !open && "hidden"
                 }`}
               >
                 <ul className="block lg:flex lg:space-x-12">
@@ -102,13 +104,13 @@ export default function Navbar({
               <div className="hidden justify-end pr-16 sm:flex lg:pr-0">
                 <Link
                   href="/login"
-                  className="px-7 py-3 text-base font-medium text-gray-900 hover:text-blue-600 dark:text-white dark:hover:text-blue-400"
+                  className="px-7 py-3 text-base font-medium text-gray-900 hover:text-orange-600 dark:text-white dark:hover:text-orange-400"
                 >
                   Sign in
                 </Link>
                 <Link
                   href="/signup"
-                  className="rounded-md bg-blue-600 px-7 py-3 text-base font-medium text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+                  className="rounded-md bg-orange-600 px-7 py-3 text-base font-medium text-white hover:bg-orange-700 dark:bg-orange-500 dark:hover:bg-orange-600"
                 >
                   Sign Up
                 </Link>

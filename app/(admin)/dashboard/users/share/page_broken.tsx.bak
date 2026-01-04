@@ -25,10 +25,7 @@ import {
 } from "@/components/ui/Dialog";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
-import {
-  updateUserPasswordAction,
-  fetchUsersWithEmailsAction,
-} from "./actions";
+import { updateUserPasswordAction } from "./actions";
 
 const navigationItems = [
   {
@@ -60,16 +57,12 @@ interface User {
 }
 
 export default function ShareCredentialsPage() {
-  const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [visiblePasswords, setVisiblePasswords] = useState<
     Record<string, boolean>
   >({});
   const [copiedItems, setCopiedItems] = useState<Record<string, boolean>>({});
-  const [copiedField, setCopiedField] = useState<string>("");
-  const [copiedUserId, setCopiedUserId] = useState<string>("");
-  const [copiedBothUserId, setCopiedBothUserId] = useState<string>("");
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState("");
@@ -77,6 +70,7 @@ export default function ShareCredentialsPage() {
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const router = useRouter();
 
   useEffect(() => {
     fetchUsers();
@@ -84,14 +78,30 @@ export default function ShareCredentialsPage() {
 
   const fetchUsers = async () => {
     try {
-      const result = await fetchUsersWithEmailsAction();
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, user_id, display_name, plain_password")
+        .eq("role", "user")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false });
 
-      if (result.error) {
-        console.error("Error fetching users:", result.error);
-        return;
-      }
+      if (error) throw error;
 
-      setUsers(result.data || []);
+      // Get email from auth.users
+      const usersWithEmail = await Promise.all(
+        (data || []).map(async (profile) => {
+          const { data: authData } = await supabase.auth.admin.getUserById(
+            profile.id
+          );
+          return {
+            ...profile,
+            email: authData.user?.email || "",
+          };
+        })
+      );
+
+      setUsers(usersWithEmail);
     } catch (error) {
       console.error("Error fetching users:", error);
     } finally {
@@ -106,29 +116,20 @@ export default function ShareCredentialsPage() {
     }));
   };
 
-  const copyToClipboard = async (text: string, field: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedField(field);
-      setCopiedUserId(field === "user_id" ? text : "");
-      setTimeout(() => {
-        setCopiedField("");
-        setCopiedUserId("");
-      }, 2000);
-    } catch (err) {
-      console.error("Failed to copy:", err);
-    }
-  };
+  const copyCredentials = async (
+    username: string,
+    password: string | null,
+    userId: string
+  ) => {
+    const credentials = `Username: ${username}\nPassword: ${
+      password || "Not available"
+    }`;
 
-  const copyBothToClipboard = async (user: User) => {
     try {
-      const textToCopy = `Username: ${user.user_id}\nPassword: ${
-        user.plain_password || "Not available"
-      }`;
-      await navigator.clipboard.writeText(textToCopy);
-      setCopiedBothUserId(user.id);
+      await navigator.clipboard.writeText(credentials);
+      setCopiedItems((prev) => ({ ...prev, [userId]: true }));
       setTimeout(() => {
-        setCopiedBothUserId("");
+        setCopiedItems((prev) => ({ ...prev, [userId]: false }));
       }, 2000);
     } catch (err) {
       console.error("Failed to copy:", err);
@@ -148,6 +149,7 @@ export default function ShareCredentialsPage() {
 
     setError("");
 
+    // Validation
     if (newPassword.length < 6) {
       setError("Password must be at least 6 characters");
       return;
@@ -173,6 +175,7 @@ export default function ShareCredentialsPage() {
       setSuccess("Password updated successfully!");
       setTimeout(() => setSuccess(""), 3000);
 
+      // Refresh users to get updated password
       await fetchUsers();
 
       setEditDialogOpen(false);
@@ -202,9 +205,9 @@ export default function ShareCredentialsPage() {
       </Button>
 
       <div className="max-w-4xl">
-        <div className="bg-white dark:bg-gray-900 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+        <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 rounded-xl p-6 border border-purple-100 dark:border-purple-900/50">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-orange-500 dark:bg-orange-600 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-purple-500 dark:bg-purple-600 flex items-center justify-center">
               <Share2 className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -217,42 +220,9 @@ export default function ShareCredentialsPage() {
             </div>
           </div>
 
-          {success && (
-            <div className="mb-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-900/50 rounded-lg text-green-800 dark:text-green-300">
-              {success}
-            </div>
-          )}
-
           <div className="space-y-4">
             {loading ? (
-              <div className="grid gap-4">
-                {[...Array(3)].map((_, i) => (
-                  <Card
-                    key={i}
-                    className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700"
-                  >
-                    <CardContent className="p-5">
-                      <div className="space-y-3">
-                        <div className="space-y-2">
-                          <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-1/3" />
-                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-1/2" />
-                        </div>
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-20" />
-                            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-32" />
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-20" />
-                            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-24" />
-                          </div>
-                        </div>
-                        <div className="h-9 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-24" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+              <p className="text-gray-500 dark:text-gray-400">Loading users...</p>
             ) : users.length === 0 ? (
               <p className="text-gray-500 dark:text-gray-400">
                 No users found. Create a user first.
@@ -260,10 +230,7 @@ export default function ShareCredentialsPage() {
             ) : (
               <div className="grid gap-4">
                 {users.map((user) => (
-                  <Card
-                    key={user.id}
-                    className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700"
-                  >
+                  <Card key={user.id} className="bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800">
                     <CardContent className="p-5">
                       <div className="flex items-start justify-between">
                         <div className="flex-1 space-y-3">
@@ -271,9 +238,7 @@ export default function ShareCredentialsPage() {
                             <h3 className="font-medium text-gray-900 dark:text-white text-lg">
                               {user.display_name || user.user_id}
                             </h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                              {user.email}
-                            </p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
                           </div>
 
                           <div className="space-y-2">
@@ -281,68 +246,48 @@ export default function ShareCredentialsPage() {
                               <span className="text-sm font-medium text-gray-600 dark:text-gray-400 w-24">
                                 User ID:
                               </span>
-                              <span className="text-sm text-gray-900 dark:text-white font-mono bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded">
+                              <span className="text-sm text-gray-900 dark:text-white font-mono bg-gray-100 dark:bg-neutral-800 px-3 py-1 rounded">
                                 {user.user_id}
                               </span>
+                              <button
+                                onClick={() => copyToClipboard(user.user_id, "user_id")}
+                                className="p-1 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded transition-colors"
+                              >
+                                {copiedField === "user_id" && copiedUserId === user.id ? (
+                                  <Check className="w-4 h-4 text-green-600" />
+                                ) : (
+                                  <Copy className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                                )}
+                              </button>
                             </div>
 
                             <div className="flex items-center gap-2">
                               <span className="text-sm font-medium text-gray-600 dark:text-gray-400 w-24">
                                 Password:
                               </span>
-                              <span className="text-sm text-gray-900 dark:text-white font-mono bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded">
+                              <span className="text-sm text-gray-900 dark:text-white font-mono bg-gray-100 dark:bg-neutral-800 px-3 py-1 rounded">
                                 {user.plain_password
                                   ? visiblePasswords[user.id]
                                     ? user.plain_password
                                     : "••••••••"
-                                  : "Not available"}
-                              </span>
-                              {user.plain_password && (
-                                <button
-                                  onClick={() =>
-                                    togglePasswordVisibility(user.id)
-                                  }
-                                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-                                >
-                                  {visiblePasswords[user.id] ? (
-                                    <EyeOff className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                                  ) : (
-                                    <Eye className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                                  )}
-                                </button>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="mt-4">
-                            <Button
-                              onClick={() => copyBothToClipboard(user)}
-                              variant="outline"
-                              size="sm"
-                              className="flex items-center gap-2"
-                            >
-                              {copiedBothUserId === user.id ? (
-                                <>
-                                  <Check className="w-4 h-4 text-green-600" />
-                                  <span>Copied</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className="w-4 h-4" />
-                                  <span>Copy</span>
-                                </>
-                              )}
-                            </Button>
+                                : "Not available"}
+                            </span>
+                            {user.plain_password && (
+                              <button
+                                onClick={() =>
+                                  togglePasswordVisibility(user.id)
+                                }
+                                className="p-1 hover:bg-white rounded transition-colors"
+                              >
+                                {visiblePasswords[user.id] ? (
+                                  <EyeOff className="w-4 h-4 text-gray-600" />
+                                ) : (
+                                  <Eye className="w-4 h-4 text-gray-600" />
+                                )}
+                              </button>
+                            )}
                           </div>
                         </div>
-
-                        <Button
-                          onClick={() => handleEditPassword(user)}
-                          variant="ghost"
-                          className="ml-4"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -353,6 +298,7 @@ export default function ShareCredentialsPage() {
         </div>
       </div>
 
+      {/* Edit Password Dialog */}
       <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)}>
         <DialogContent>
           <DialogHeader>
@@ -365,44 +311,45 @@ export default function ShareCredentialsPage() {
 
           <div className="space-y-4 py-4">
             {error && (
-              <div className="rounded-lg bg-red-50 dark:bg-red-900/20 p-3 border border-red-200 dark:border-red-900/50">
-                <p className="text-sm text-red-800 dark:text-red-300">
-                  {error}
-                </p>
+              <div className="rounded-lg bg-red-50 p-3 border border-red-200">
+                <p className="text-sm text-red-800">{error}</p>
               </div>
             )}
 
             <div className="space-y-2">
               <Label
                 htmlFor="new_password"
-                className="font-medium text-gray-900 dark:text-white text-sm"
+                className="font-['Inter',Helvetica] font-medium text-gray-900 text-sm"
               >
                 New Password <span className="text-red-500">*</span>
               </Label>
               <Input
                 id="new_password"
                 type="password"
+                placeholder="Enter new password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 disabled={updating}
-                className="w-full"
+                className="w-full h-12 bg-white rounded-lg border-2 border-gray-200 text-gray-900 px-4 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
               />
+              <p className="text-xs text-gray-600">Minimum 6 characters</p>
             </div>
 
             <div className="space-y-2">
               <Label
                 htmlFor="confirm_password"
-                className="font-medium text-gray-900 dark:text-white text-sm"
+                className="font-['Inter',Helvetica] font-medium text-gray-900 text-sm"
               >
                 Confirm Password <span className="text-red-500">*</span>
               </Label>
               <Input
                 id="confirm_password"
                 type="password"
+                placeholder="Re-enter new password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 disabled={updating}
-                className="w-full"
+                className="w-full h-12 bg-white rounded-lg border-2 border-gray-200 text-gray-900 px-4 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all"
               />
             </div>
           </div>
@@ -418,7 +365,7 @@ export default function ShareCredentialsPage() {
             <Button
               onClick={handleUpdatePassword}
               disabled={updating}
-              className="bg-orange-600 text-white hover:bg-orange-700"
+              className="bg-blue-600 text-white hover:bg-blue-700"
             >
               {updating ? "Updating..." : "Update Password"}
             </Button>

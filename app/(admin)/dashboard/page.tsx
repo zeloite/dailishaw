@@ -1,16 +1,8 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import Image from 'next/image';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from "react";
+import Link from "next/link";
 import {
-  BellIcon,
-  ChevronDownIcon,
-  SearchIcon,
-  MenuIcon,
-  ChevronLeftIcon,
-  LogOutIcon,
   Users,
   TrendingUp,
   DollarSign,
@@ -19,498 +11,682 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Clock,
-} from 'lucide-react';
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from '@/components/ui/Avatar';
-import { Button } from '@/components/ui/Button';
-import { logoutAction } from '@/app/actions/logout';
-import { Card, CardContent } from '@/components/ui/Card';
-import { Input } from '@/components/ui/Input';
-import { createClient } from '@/lib/supabase/client';
+} from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { Card, CardContent } from "@/components/ui/Card";
+import DashboardLayout from "@/components/DashboardLayout";
+import { createClient } from "@/lib/supabase/client";
 
 const navigationItems = [
   {
-    icon: '/ix-user-management.svg',
-    label: 'User Management',
+    icon: "/ix-user-management.svg",
+    label: "User Management",
     active: false,
-    href: '/dashboard/users',
+    href: "/dashboard/users",
   },
   {
-    icon: '/pajamas-media.svg',
-    label: 'Media Management',
+    icon: "/pajamas-media.svg",
+    label: "Media Management",
     active: false,
-    href: '/dashboard/categories',
+    href: "/dashboard/categories",
   },
   {
-    icon: '/game-icons-expense.svg',
-    label: 'Expense Monitoring',
+    icon: "/game-icons-expense.svg",
+    label: "Expense Monitoring",
     active: false,
-    href: '/dashboard/expenses',
+    href: "/dashboard/expenses",
   },
 ];
 
 const actionCards = [
   {
-    image: '/user-image-14.png',
-    buttonText: 'Create User',
+    image: "/user-image-14.png",
+    buttonText: "Create User",
     useIcon: false,
-    href: '/dashboard/users/create',
+    href: "/dashboard/users/create",
   },
   {
-    image: '/user-image-15.png',
-    buttonText: 'Set Username & Password',
+    image: "/user-image-15.png",
+    buttonText: "Set Username & Password",
     useIcon: false,
-    href: '/dashboard/users',
+    href: "/dashboard/users",
   },
   {
-    image: '/user-image-16.png',
-    buttonText: 'Share Credentials',
+    image: "/user-image-16.png",
+    buttonText: "Share Credentials",
     useIcon: false,
-    href: '/dashboard/users',
+    href: "/dashboard/users",
   },
   {
-    buttonText: 'Active Users',
+    buttonText: "Active Users",
     useIcon: true,
-    href: '/dashboard/users',
+    href: "/dashboard/users",
   },
 ];
 
-const recentActivities = [
-  'User Created — 05 Jan 2026, 10:30 AM',
-  'Credentials Set — 05 Jan 2026, 10:35 AM',
-  'Credentials Sent — Pending',
-];
+interface Activity {
+  id: string;
+  type: "user_created" | "user_activated" | "expense_submitted";
+  userName?: string;
+  userId?: string;
+  amount?: number;
+  timestamp: string;
+}
 
 export default function AdminDashboard() {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [totalUsers, setTotalUsers] = useState(0);
   const [activeUsers, setActiveUsers] = useState(0);
+  const [totalExpenses, setTotalExpenses] = useState(0);
+  const [expensesGrowth, setExpensesGrowth] = useState(0);
+  const [userGrowth, setUserGrowth] = useState(0);
+  const [activeUserGrowth, setActiveUserGrowth] = useState(0);
+  const [recentActivities, setRecentActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
 
   useEffect(() => {
     fetchDashboardStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const formatCurrency = (amount: number) => {
+    if (amount >= 100000) {
+      return `₹${(amount / 100000).toFixed(1)}L`;
+    } else if (amount >= 1000) {
+      return `₹${(amount / 1000).toFixed(1)}K`;
+    }
+    return `₹${amount.toFixed(0)}`;
+  };
+
+  const formatRelativeTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (diffInSeconds < 60) return "just now";
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400)
+      return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    if (diffInSeconds < 604800)
+      return `${Math.floor(diffInSeconds / 86400)}d ago`;
+
+    return date.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   const fetchDashboardStats = async () => {
     try {
       const supabase = createClient();
-      const { data: users, error } = await supabase
-        .from('profiles')
-        .select('id, is_active, role')
-        .eq('role', 'user');
 
-      if (!error && users) {
+      // Fetch users
+      const { data: users, error: usersError } = await supabase
+        .from("profiles")
+        .select("id, is_active, role, created_at")
+        .eq("role", "user");
+
+      if (!usersError && users) {
         setTotalUsers(users.length);
-        setActiveUsers(users.filter(u => u.is_active).length);
+        setActiveUsers(users.filter((u) => u.is_active).length);
+
+        // Calculate user growth (current month vs last month)
+        const now = new Date();
+        const currentMonthStart = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          1
+        );
+        const lastMonthStart = new Date(
+          now.getFullYear(),
+          now.getMonth() - 1,
+          1
+        );
+
+        const currentMonthUsers = users.filter(
+          (u) => new Date(u.created_at) >= currentMonthStart
+        ).length;
+        const lastMonthUsers = users.filter(
+          (u) =>
+            new Date(u.created_at) >= lastMonthStart &&
+            new Date(u.created_at) < currentMonthStart
+        ).length;
+
+        if (lastMonthUsers > 0) {
+          const growth =
+            ((currentMonthUsers - lastMonthUsers) / lastMonthUsers) * 100;
+          setUserGrowth(Math.round(growth));
+        } else if (currentMonthUsers > 0) {
+          setUserGrowth(100);
+        }
+
+        // Calculate active user growth (current month vs last month active users)
+        const totalUsersLastMonth = users.filter(
+          (u) => new Date(u.created_at) < currentMonthStart
+        ).length;
+        const totalUsersPrevMonth = users.filter(
+          (u) => new Date(u.created_at) < lastMonthStart
+        ).length;
+
+        if (totalUsersPrevMonth > 0) {
+          const activeGrowth =
+            ((totalUsersLastMonth - totalUsersPrevMonth) /
+              totalUsersPrevMonth) *
+            100;
+          setActiveUserGrowth(Math.round(activeGrowth));
+        } else if (totalUsersLastMonth > 0) {
+          setActiveUserGrowth(100);
+        }
       }
+
+      // Fetch expenses for current month
+      const now = new Date();
+      const currentMonthStart = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        1
+      ).toISOString();
+      const nextMonthStart = new Date(
+        now.getFullYear(),
+        now.getMonth() + 1,
+        1
+      ).toISOString();
+
+      const { data: currentExpenses } = await supabase
+        .from("expenses")
+        .select("amount, fare_amount")
+        .gte("expense_date", currentMonthStart)
+        .lt("expense_date", nextMonthStart);
+
+      // Fetch expenses for last month
+      const lastMonthStart = new Date(
+        now.getFullYear(),
+        now.getMonth() - 1,
+        1
+      ).toISOString();
+      const lastMonthEnd = currentMonthStart;
+
+      const { data: lastMonthExpenses } = await supabase
+        .from("expenses")
+        .select("amount, fare_amount")
+        .gte("expense_date", lastMonthStart)
+        .lt("expense_date", lastMonthEnd);
+
+      // Calculate totals
+      const currentTotal =
+        currentExpenses?.reduce(
+          (sum, exp) => sum + (exp.amount || 0) + (exp.fare_amount || 0),
+          0
+        ) || 0;
+
+      const lastMonthTotal =
+        lastMonthExpenses?.reduce(
+          (sum, exp) => sum + (exp.amount || 0) + (exp.fare_amount || 0),
+          0
+        ) || 0;
+
+      setTotalExpenses(currentTotal);
+
+      // Calculate growth percentage
+      if (lastMonthTotal > 0) {
+        const growth = ((currentTotal - lastMonthTotal) / lastMonthTotal) * 100;
+        setExpensesGrowth(Math.round(growth));
+      }
+
+      // Fetch recent activities
+      await fetchRecentActivities();
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      console.error("Error fetching stats:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLogout = async () => {
-    await logoutAction();
+  const fetchRecentActivities = async () => {
+    try {
+      const supabase = createClient();
+      const activities: Activity[] = [];
+
+      // Fetch recent user creations (last 5)
+      const { data: newUsers } = await supabase
+        .from("profiles")
+        .select("id, user_id, created_at")
+        .eq("role", "user")
+        .order("created_at", { ascending: false })
+        .limit(3);
+
+      if (newUsers) {
+        newUsers.forEach((user) => {
+          activities.push({
+            id: `user-${user.id}`,
+            type: "user_created",
+            userName: user.user_id,
+            timestamp: user.created_at,
+          });
+        });
+      }
+
+      // Fetch recent expenses (last 5)
+      const { data: recentExpenses } = await supabase
+        .from("expenses")
+        .select("id, user_id, amount, fare_amount, created_at")
+        .order("created_at", { ascending: false })
+        .limit(3);
+
+      if (recentExpenses) {
+        recentExpenses.forEach((expense) => {
+          activities.push({
+            id: `expense-${expense.id}`,
+            type: "expense_submitted",
+            userId: expense.user_id,
+            amount: (expense.amount || 0) + (expense.fare_amount || 0),
+            timestamp: expense.created_at,
+          });
+        });
+      }
+
+      // Sort all activities by timestamp and take top 4
+      activities.sort(
+        (a, b) =>
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
+
+      setRecentActivities(activities.slice(0, 4));
+    } catch (error) {
+      console.error("Error fetching activities:", error);
+    }
   };
 
   return (
-    <div className="flex min-h-screen bg-[#f7f8fa]">
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      <aside
-        className={`
-        fixed inset-y-0 left-0 z-50
-        w-[264px] bg-white flex-shrink-0 flex flex-col h-screen overflow-hidden
-        transition-all duration-300 ease-in-out
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}
-      >
-        <div className="flex items-center justify-between px-4 pt-4">
-          <Link href="/dashboard" className="relative w-[200px] h-[80px] cursor-pointer">
-            <Image
-              src="/dashboard-logo.gif"
-              alt="Dailishaw Logo"
-              fill
-              className="object-contain"
-              priority
-              unoptimized
-            />
-          </Link>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="p-2 rounded-md hover:bg-gray-100"
-          >
-            <ChevronLeftIcon className="w-6 h-6 text-gray-900" />
-          </button>
-        </div>
-
-        <nav className="mt-8 flex-1">
-          {navigationItems.map((item, index) => (
-            <Link
-              key={index}
-              href={item.href}
-              className="relative flex items-center gap-7 px-8 py-4 cursor-pointer hover:bg-gray-50"
+    <DashboardLayout navigationItems={navigationItems} pageTitle="Dashboard">
+      {/* KPI Cards - Google Analytics Style */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {/* Total Users */}
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-2">
+                Total Users
+              </p>
+              <h3 className="text-3xl font-bold text-gray-900 dark:text-white">
+                {loading ? "..." : totalUsers}
+              </h3>
+            </div>
+            <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+              <Users className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {userGrowth >= 0 ? (
+              <ArrowUpRight className="w-4 h-4 text-green-600" />
+            ) : (
+              <ArrowDownRight className="w-4 h-4 text-red-600" />
+            )}
+            <span
+              className={`text-xs font-medium ${
+                userGrowth >= 0 ? "text-green-600" : "text-red-600"
+              }`}
             >
-              {item.active && (
-                <div className="absolute left-0 top-0 w-1 h-full bg-[#fa841c]" />
-              )}
-              <div className="relative w-6 h-6">
-                <Image 
-                  src={item.icon} 
-                  alt={item.label} 
-                  fill
-                  className={item.active ? '[filter:invert(56%)_sepia(89%)_saturate(1821%)_hue-rotate(187deg)_brightness(101%)_contrast(98%)]' : ''}
-                />
-              </div>
-              <span
-                className={`font-['Inter',Helvetica] font-normal text-base ${
-                  item.active ? 'text-[#6aabfd]' : 'text-[#5d5d5d]'
-                }`}
-              >
-                {item.label}
-              </span>
-            </Link>
-          ))}
-        </nav>
-
-        <div className="border-t border-gray-200 p-4">
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 rounded-lg transition-colors"
-          >
-            <LogOutIcon className="w-6 h-6 text-[#5d5d5d]" />
-            <span className="font-['Inter',Helvetica] font-normal text-base text-[#5d5d5d]">
-              Logout
+              {userGrowth >= 0 ? "+" : ""}
+              {userGrowth}% from last month
             </span>
-          </button>
+          </div>
         </div>
-      </aside>
 
-      <main className={`flex-1 flex flex-col w-full transition-all duration-300 ${sidebarOpen ? 'lg:ml-[264px]' : 'ml-0'}`}>
-        <header className="h-20 bg-white shadow-[0px_2px_4px_#d9d9d940] flex items-center px-4 lg:px-6 gap-3 lg:gap-6">
-          {!sidebarOpen && (
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="p-2 rounded-md hover:bg-gray-100"
+        {/* Active Users */}
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-2">
+                Active Users
+              </p>
+              <h3 className="text-3xl font-bold text-gray-900 dark:text-white">
+                {loading ? "..." : activeUsers}
+              </h3>
+            </div>
+            <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+              <Activity className="w-5 h-5 text-green-600 dark:text-green-400" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {activeUserGrowth >= 0 ? (
+              <ArrowUpRight className="w-4 h-4 text-green-600" />
+            ) : (
+              <ArrowDownRight className="w-4 h-4 text-red-600" />
+            )}
+            <span
+              className={`text-xs font-medium ${
+                activeUserGrowth >= 0 ? "text-green-600" : "text-red-600"
+              }`}
             >
-              <MenuIcon className="w-6 h-6 text-gray-900" />
-            </button>
-          )}
-
-          <h1 className="font-['Inter',Helvetica] font-medium text-black text-xl lg:text-[32px] whitespace-nowrap">
-            Dashboard
-          </h1>
-
-          <div className="hidden md:flex flex-1 max-w-[327px] relative ml-6">
-            <div className="relative w-full">
-              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-6 h-6 text-gray-400" />
-              <Input
-                type="text"
-                placeholder="Type to Search"
-                className="w-full h-[41px] pl-12 pr-4 bg-white rounded-[10px] border border-black font-['Inter',Helvetica] font-medium text-[15px] placeholder:text-[#b8b3b3]"
-              />
-            </div>
-          </div>
-
-          <div className="ml-auto flex items-center gap-3 lg:gap-6">
-            <BellIcon className="w-5 h-5 lg:w-6 lg:h-6 cursor-pointer text-gray-900" />
-
-            <div className="hidden sm:flex items-center gap-3 cursor-pointer">
-              <Avatar className="w-[30px] h-[30px]">
-                <AvatarImage src="/ellipse-1.svg" alt="Admin" />
-                <AvatarFallback>A</AvatarFallback>
-              </Avatar>
-              <span className="hidden md:inline font-['Inter',Helvetica] font-normal text-black text-[15px] whitespace-nowrap">
-                Admin
-              </span>
-              <ChevronDownIcon className="w-5 h-5 lg:w-6 lg:h-6 text-gray-900" />
-            </div>
-          </div>
-        </header>
-
-        <div className="flex-1 p-4 lg:p-6 space-y-6">
-          {/* Stats Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
-            {/* Total Users Card */}
-            <Card className="bg-gradient-to-br from-blue-500 to-blue-600 border-0 shadow-lg hover:shadow-xl transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-blue-100 text-sm font-medium mb-1">Total Users</p>
-                    <h3 className="text-white text-3xl font-bold">
-                      {loading ? '...' : totalUsers}
-                    </h3>
-                    <div className="flex items-center gap-1 mt-2">
-                      <ArrowUpRight className="w-4 h-4 text-blue-100" />
-                      <span className="text-blue-100 text-xs">+12% from last month</span>
-                    </div>
-                  </div>
-                  <div className="bg-white/20 p-3 rounded-lg">
-                    <Users className="w-8 h-8 text-white" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Active Users Card */}
-            <Card className="bg-gradient-to-br from-green-500 to-green-600 border-0 shadow-lg hover:shadow-xl transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-green-100 text-sm font-medium mb-1">Active Users</p>
-                    <h3 className="text-white text-3xl font-bold">
-                      {loading ? '...' : activeUsers}
-                    </h3>
-                    <div className="flex items-center gap-1 mt-2">
-                      <ArrowUpRight className="w-4 h-4 text-green-100" />
-                      <span className="text-green-100 text-xs">+8% this week</span>
-                    </div>
-                  </div>
-                  <div className="bg-white/20 p-3 rounded-lg">
-                    <Activity className="w-8 h-8 text-white" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Total Expenses Card */}
-            <Card className="bg-gradient-to-br from-orange-500 to-orange-600 border-0 shadow-lg hover:shadow-xl transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-orange-100 text-sm font-medium mb-1">Total Expenses</p>
-                    <h3 className="text-white text-3xl font-bold">₹28.4K</h3>
-                    <div className="flex items-center gap-1 mt-2">
-                      <ArrowUpRight className="w-4 h-4 text-orange-100" />
-                      <span className="text-orange-100 text-xs">+23% from last month</span>
-                    </div>
-                  </div>
-                  <div className="bg-white/20 p-3 rounded-lg">
-                    <DollarSign className="w-8 h-8 text-white" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Growth Rate Card */}
-            <Card className="bg-gradient-to-br from-purple-500 to-purple-600 border-0 shadow-lg hover:shadow-xl transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-purple-100 text-sm font-medium mb-1">Growth Rate</p>
-                    <h3 className="text-white text-3xl font-bold">+24.5%</h3>
-                    <div className="flex items-center gap-1 mt-2">
-                      <ArrowUpRight className="w-4 h-4 text-purple-100" />
-                      <span className="text-purple-100 text-xs">Compared to last quarter</span>
-                    </div>
-                  </div>
-                  <div className="bg-white/20 p-3 rounded-lg">
-                    <TrendingUp className="w-8 h-8 text-white" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Main Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Quick Actions - Takes 2 columns */}
-            <Card className="lg:col-span-2 bg-white rounded-xl shadow-md border border-gray-100">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="font-['Inter',Helvetica] font-semibold text-gray-900 text-xl">
-                    Quick Actions
-                  </h2>
-                  <Link href="/dashboard/users">
-                    <Button variant="ghost" size="sm" className="text-[#6aabfd] hover:text-[#5a9bed]">
-                      View All →
-                    </Button>
-                  </Link>
-                </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Link href="/dashboard/users/create">
-                    <div className="group relative overflow-hidden bg-gradient-to-br from-[#f9831b] to-[#fa9d4b] rounded-xl p-6 cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
-                      <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12"></div>
-                      <UserPlus className="w-10 h-10 text-white mb-3" />
-                      <h3 className="text-white font-semibold text-lg mb-1">Create User</h3>
-                      <p className="text-white/80 text-sm">Add new user to the system</p>
-                    </div>
-                  </Link>
-
-                  <Link href="/dashboard/users/active">
-                    <div className="group relative overflow-hidden bg-gradient-to-br from-[#6aabfd] to-[#8ec0ff] rounded-xl p-6 cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
-                      <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12"></div>
-                      <Users className="w-10 h-10 text-white mb-3" />
-                      <h3 className="text-white font-semibold text-lg mb-1">Active Users</h3>
-                      <p className="text-white/80 text-sm">View and manage users</p>
-                    </div>
-                  </Link>
-
-                  <Link href="/dashboard/categories">
-                    <div className="group relative overflow-hidden bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
-                      <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12"></div>
-                      <Image src="/pajamas-media.svg" alt="Media" width={40} height={40} className="mb-3 brightness-0 invert" />
-                      <h3 className="text-white font-semibold text-lg mb-1">Media Management</h3>
-                      <p className="text-white/80 text-sm">Manage media categories</p>
-                    </div>
-                  </Link>
-
-                  <Link href="/dashboard/expenses">
-                    <div className="group relative overflow-hidden bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
-                      <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12"></div>
-                      <DollarSign className="w-10 h-10 text-white mb-3" />
-                      <h3 className="text-white font-semibold text-lg mb-1">Expense Monitoring</h3>
-                      <p className="text-white/80 text-sm">Track expenses and reports</p>
-                    </div>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Recent Activity */}
-            <Card className="bg-white rounded-xl shadow-md border border-gray-100">
-              <CardContent className="p-6">
-                <h2 className="font-['Inter',Helvetica] font-semibold text-gray-900 text-xl mb-6">
-                  Recent Activity
-                </h2>
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                    <div className="bg-blue-100 p-2 rounded-lg">
-                      <UserPlus className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">New user created</p>
-                      <p className="text-xs text-gray-500 mt-1">User ID: john_doe</p>
-                      <div className="flex items-center gap-1 text-xs text-gray-400 mt-1">
-                        <Clock className="w-3 h-3" />
-                        <span>2 hours ago</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                    <div className="bg-green-100 p-2 rounded-lg">
-                      <Activity className="w-5 h-5 text-green-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">User activated</p>
-                      <p className="text-xs text-gray-500 mt-1">User ID: sarah_smith</p>
-                      <div className="flex items-center gap-1 text-xs text-gray-400 mt-1">
-                        <Clock className="w-3 h-3" />
-                        <span>4 hours ago</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                    <div className="bg-orange-100 p-2 rounded-lg">
-                      <DollarSign className="w-5 h-5 text-orange-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">Expense submitted</p>
-                      <p className="text-xs text-gray-500 mt-1">Amount: ₹3,200</p>
-                      <div className="flex items-center gap-1 text-xs text-gray-400 mt-1">
-                        <Clock className="w-3 h-3" />
-                        <span>5 hours ago</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                    <div className="bg-purple-100 p-2 rounded-lg">
-                      <TrendingUp className="w-5 h-5 text-purple-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">Monthly report generated</p>
-                      <p className="text-xs text-gray-500 mt-1">December 2025</p>
-                      <div className="flex items-center gap-1 text-xs text-gray-400 mt-1">
-                        <Clock className="w-3 h-3" />
-                        <span>1 day ago</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <Button 
-                  variant="outline" 
-                  className="w-full mt-4 border-gray-200 hover:bg-gray-50"
-                >
-                  View All Activity
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* System Overview */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="bg-white rounded-xl shadow-md border border-gray-100">
-              <CardContent className="p-6">
-                <h2 className="font-['Inter',Helvetica] font-semibold text-gray-900 text-xl mb-6">
-                  System Overview
-                </h2>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                      <span className="text-sm font-medium text-gray-700">System Status</span>
-                    </div>
-                    <span className="text-sm font-semibold text-green-600">Operational</span>
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <span className="text-sm font-medium text-gray-700">Database Connection</span>
-                    <span className="text-sm font-semibold text-green-600">Active</span>
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <span className="text-sm font-medium text-gray-700">Last Backup</span>
-                    <span className="text-sm font-semibold text-gray-600">Today, 3:00 AM</span>
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <span className="text-sm font-medium text-gray-700">Storage Usage</span>
-                    <span className="text-sm font-semibold text-gray-600">2.4 GB / 10 GB</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl shadow-md border-0">
-              <CardContent className="p-6">
-                <h2 className="font-['Inter',Helvetica] font-semibold text-white text-xl mb-4">
-                  Welcome Back, Admin
-                </h2>
-                <p className="text-gray-300 text-sm mb-6">
-                  Your dashboard is ready. Monitor your pharma operations, manage users, and track expenses all in one place.
-                </p>
-                <div className="flex flex-wrap gap-3">
-                  <Link href="/dashboard/users/create">
-                    <Button className="bg-[#f9831b] hover:bg-[#e67610] text-white">
-                      Create New User
-                    </Button>
-                  </Link>
-                  <Link href="/dashboard/expenses">
-                    <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20">
-                      View Expenses
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
+              {activeUserGrowth >= 0 ? "+" : ""}
+              {activeUserGrowth}% total user growth
+            </span>
           </div>
         </div>
-      </main>
-    </div>
+
+        {/* Total Expenses */}
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-2">
+                Total Expenses
+              </p>
+              <h3 className="text-3xl font-bold text-gray-900 dark:text-white">
+                {loading ? "..." : formatCurrency(totalExpenses)}
+              </h3>
+            </div>
+            <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+              <DollarSign className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {expensesGrowth >= 0 ? (
+              <ArrowUpRight className="w-4 h-4 text-orange-600" />
+            ) : (
+              <ArrowDownRight className="w-4 h-4 text-red-600" />
+            )}
+            <span
+              className={`text-xs font-medium ${
+                expensesGrowth >= 0 ? "text-orange-600" : "text-red-600"
+              }`}
+            >
+              {expensesGrowth >= 0 ? "+" : ""}
+              {expensesGrowth}% last month
+            </span>
+          </div>
+        </div>
+
+        {/* Growth Rate */}
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-2">
+                Growth Rate
+              </p>
+              <h3 className="text-3xl font-bold text-gray-900 dark:text-white">
+                {loading ? (
+                  "..."
+                ) : (
+                  <>
+                    {Math.round((userGrowth + expensesGrowth) / 2) >= 0
+                      ? "+"
+                      : ""}
+                    {Math.round((userGrowth + expensesGrowth) / 2)}%
+                  </>
+                )}
+              </h3>
+            </div>
+            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+              <TrendingUp className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {Math.round((userGrowth + expensesGrowth) / 2) >= 0 ? (
+              <ArrowUpRight className="w-4 h-4 text-green-600" />
+            ) : (
+              <ArrowDownRight className="w-4 h-4 text-red-600" />
+            )}
+            <span
+              className={`text-xs font-medium ${
+                Math.round((userGrowth + expensesGrowth) / 2) >= 0
+                  ? "text-green-600"
+                  : "text-red-600"
+              }`}
+            >
+              this month
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Quick Actions */}
+        <div className="lg:col-span-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Quick Actions
+            </h2>
+            <Link href="/dashboard/users">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20"
+              >
+                View All →
+              </Button>
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Link href="/dashboard/users/create">
+              <div className="p-4 rounded-lg bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-900/10 border border-orange-200 dark:border-orange-800/50 cursor-pointer group">
+                <div className="p-2 bg-orange-600 text-white rounded-lg w-fit mb-3 group-hover:scale-110 transition-transform">
+                  <UserPlus className="w-5 h-5" />
+                </div>
+                <h3 className="font-semibold text-gray-900 dark:text-white text-sm mb-1">
+                  Create User
+                </h3>
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  Add new user
+                </p>
+              </div>
+            </Link>
+
+            <Link href="/dashboard/users/active">
+              <div className="p-4 rounded-lg bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-900/10 border border-green-200 dark:border-green-800/50 cursor-pointer group">
+                <div className="p-2 bg-green-600 text-white rounded-lg w-fit mb-3 group-hover:scale-110 transition-transform">
+                  <Users className="w-5 h-5" />
+                </div>
+                <h3 className="font-semibold text-gray-900 dark:text-white text-sm mb-1">
+                  Active Users
+                </h3>
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  View & manage
+                </p>
+              </div>
+            </Link>
+
+            <Link href="/dashboard/categories">
+              <div className="p-4 rounded-lg bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-900/10 border border-purple-200 dark:border-purple-800/50 cursor-pointer group">
+                <div className="p-2 bg-purple-600 text-white rounded-lg w-fit mb-3 group-hover:scale-110 transition-transform">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/pajamas-media.svg"
+                    alt="Media"
+                    width={20}
+                    height={20}
+                    className="brightness-0 invert"
+                  />
+                </div>
+                <h3 className="font-semibold text-gray-900 dark:text-white text-sm mb-1">
+                  Media
+                </h3>
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  Categories
+                </p>
+              </div>
+            </Link>
+
+            <Link href="/dashboard/expenses">
+              <div className="p-4 rounded-lg bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-900/10 border border-orange-200 dark:border-orange-800/50 cursor-pointer group">
+                <div className="p-2 bg-orange-600 text-white rounded-lg w-fit mb-3 group-hover:scale-110 transition-transform">
+                  <DollarSign className="w-5 h-5" />
+                </div>
+                <h3 className="font-semibold text-gray-900 dark:text-white text-sm mb-1">
+                  Expenses
+                </h3>
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  Monitor
+                </p>
+              </div>
+            </Link>
+          </div>
+        </div>
+
+        {/* Recent Activity */}
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Recent Activity
+          </h2>
+          <div className="space-y-3">
+            {loading ? (
+              // Loading skeleton
+              [...Array(4)].map((_, i) => (
+                <div
+                  key={i}
+                  className="flex gap-3 p-3 rounded-lg animate-pulse"
+                >
+                  <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700"></div>
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                  </div>
+                </div>
+              ))
+            ) : recentActivities.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                No recent activity
+              </p>
+            ) : (
+              recentActivities.map((activity) => (
+                <div
+                  key={activity.id}
+                  className="flex gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <div className="flex-shrink-0">
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        activity.type === "user_created"
+                          ? "bg-orange-100 dark:bg-orange-900/30"
+                          : activity.type === "user_activated"
+                          ? "bg-green-100 dark:bg-green-900/30"
+                          : "bg-orange-100 dark:bg-orange-900/30"
+                      }`}
+                    >
+                      {activity.type === "user_created" ? (
+                        <UserPlus
+                          className={`w-4 h-4 ${
+                            activity.type === "user_created"
+                              ? "text-orange-600 dark:text-orange-400"
+                              : ""
+                          }`}
+                        />
+                      ) : activity.type === "user_activated" ? (
+                        <Activity className="w-4 h-4 text-green-600 dark:text-green-400" />
+                      ) : (
+                        <DollarSign className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {activity.type === "user_created"
+                        ? "New user created"
+                        : activity.type === "user_activated"
+                        ? "User activated"
+                        : "Expense submitted"}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {activity.type === "expense_submitted"
+                        ? formatCurrency(activity.amount || 0)
+                        : activity.userName || activity.userId}
+                    </p>
+                  </div>
+                  <div className="flex-shrink-0">
+                    <p className="text-xs text-gray-400 dark:text-gray-500">
+                      {formatRelativeTime(activity.timestamp)}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+
+      <Button
+        variant="outline"
+        className="w-full mt-4 mb-6 border-gray-200 dark:border-gray-700"
+      >
+        View All
+      </Button>
+
+      {/* System Overview */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            System Status
+          </h2>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  System
+                </span>
+              </div>
+              <span className="text-xs font-semibold text-green-600 dark:text-green-400">
+                Operational
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Database
+              </span>
+              <span className="text-xs font-semibold text-green-600 dark:text-green-400">
+                Active
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Last Backup
+              </span>
+              <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                Today, 3:00 AM
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Storage
+              </span>
+              <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                2.4 GB / 10 GB
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+            Welcome Back
+          </h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+            Monitor your pharma operations, manage users, and track expenses all
+            in one place.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <Link href="/dashboard/users/create">
+              <Button className="bg-orange-600 hover:bg-orange-700 text-white text-sm h-9">
+                Create User
+              </Button>
+            </Link>
+            <Link href="/dashboard/expenses">
+              <Button
+                variant="outline"
+                className="border-gray-300 dark:border-gray-600 text-sm h-9"
+              >
+                View Expenses
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    </DashboardLayout>
   );
 }

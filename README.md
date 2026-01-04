@@ -1,135 +1,163 @@
-# Dailishaw - Internal Pharma Software
+# Dailishaw - Internal Pharma Management System
 
-A Next.js 14 application for internal pharmaceutical software management with role-based access control.
+A Next.js-based internal pharmaceutical management system with role-based access control, built with TypeScript, Tailwind CSS, and Supabase.
+
+## Features
+
+- 🔐 **Authentication & Authorization**: Secure login with role-based access (Admin & User)
+- 👥 **User Management**: Create, manage, and share user credentials
+- 📦 **Product Management**: Organize products by categories with image support
+- 💰 **Expense Tracking**: Monitor and manage expenses with detailed analytics
+- 📊 **Dynamic Dashboard**: Real-time KPIs with growth metrics
+- 📱 **Media Gallery**: Fullscreen image viewer with swipe navigation
+- 🎨 **Modern UI**: Minimalistic design with orange theme
 
 ## Tech Stack
 
-- **Next.js 14** with App Router
-- **TypeScript** for type safety
-- **Tailwind CSS** for styling
-- **Supabase** for authentication and database
+- **Framework**: Next.js 14 (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **Database**: Supabase (PostgreSQL)
+- **Authentication**: Supabase Auth
+- **Deployment**: Vercel
 
-## Project Structure
+## Getting Started
 
-```
-.
-├── app/
-│   ├── (admin)/          # Admin panel routes (role: admin)
-│   │   ├── layout.tsx
-│   │   └── admin/
-│   │       └── page.tsx  # Admin dashboard
-│   ├── (user)/           # User panel routes (role: user)
-│   │   ├── layout.tsx
-│   │   └── dashboard/
-│   │       └── page.tsx  # User dashboard
-│   ├── login/
-│   │   └── page.tsx      # Login page
-│   ├── layout.tsx        # Root layout
-│   ├── page.tsx          # Home page
-│   └── globals.css       # Global styles
-├── lib/
-│   ├── auth.ts           # Auth helper functions
-│   └── supabase/
-│       ├── client.ts     # Supabase browser client
-│       ├── server.ts     # Supabase server client
-│       └── middleware.ts # Supabase middleware helper
-├── middleware.ts         # Next.js middleware for route protection
-└── .env.local.example    # Environment variables template
-```
+### Prerequisites
 
-## Authentication & Authorization
+- Node.js 18+ installed
+- Supabase account and project
+- npm or yarn package manager
 
-### User Roles
-- **admin**: Full access to admin panel and user features
-- **user**: Access to user dashboard only
+### Installation
 
-### Protected Routes
-- `/admin/*` - Requires admin role
-- `/dashboard/*` - Requires authentication (any role)
-- `/login` - Public route
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/zeloite/dailishaw.git
+   cd dailishaw
+   ```
 
-### Middleware
-The middleware handles:
-- Session management via Supabase
-- Route protection based on authentication
-- Role-based access control
-- Automatic redirects for unauthorized access
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-## Setup Instructions
-
-### 1. Install Dependencies
-
-```bash
-npm install
-```
-
-### 2. Configure Supabase
-
-1. Create a Supabase project at [supabase.com](https://supabase.com)
-2. Copy `.env.local.example` to `.env.local`
-3. Add your Supabase credentials:
+3. **Set up environment variables**
+   ```bash
+   cp .env.example .env
+   ```
+   
+   Edit `.env` and add your Supabase credentials:
    ```env
    NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
    ```
 
-### 3. Set Up User Roles in Supabase
+4. **Set up Supabase database**
+   - Run the SQL scripts in `supabase/schema.sql` to create tables
+   - Run `supabase/setup-admin.sql` to create initial admin user
 
-Add role information to user metadata during signup:
-```typescript
-await supabase.auth.signUp({
-  email: 'user@example.com',
-  password: 'password',
-  options: {
-    data: {
-      role: 'user' // or 'admin'
-    }
-  }
-})
+5. **Run development server**
+   ```bash
+   npm run dev
+   ```
+
+6. **Open your browser**
+   Navigate to [http://localhost:3000](http://localhost:3000)
+
+## Deployment to Vercel
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions.
+
+**Quick Deploy:**
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/zeloite/dailishaw)
+
+1. Click the deploy button above
+2. Add environment variables in Vercel:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+3. Deploy and visit your live site!
+
+## Project Structure
+
+```
+dailishaw/
+├── app/
+│   ├── (admin)/          # Admin-only routes
+│   │   └── dashboard/    # Admin dashboard pages
+│   ├── (user)/           # User-only routes
+│   │   └── user-dashboard/
+│   ├── actions/          # Server actions
+│   ├── api/              # API routes
+│   └── login/            # Authentication pages
+├── components/           # Reusable React components
+│   └── ui/               # UI component library
+├── lib/
+│   ├── supabase/         # Supabase client configs
+│   ├── hooks/            # Custom React hooks
+│   └── actions/          # Server-side actions
+├── supabase/             # Database schemas
+└── public/               # Static assets
 ```
 
-### 4. Run Development Server
+## User Roles
 
-```bash
-npm run dev
-```
+### Admin
+- Full access to all features
+- User management and credential sharing
+- Product and category management
+- Expense tracking and analytics
+- Dashboard with growth metrics
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+### User
+- Personal dashboard
+- Expense submission
+- Media gallery access
+- Limited administrative functions
 
-## Available Routes
+## Available Scripts
 
-- `/` - Home page
-- `/login` - Login page (placeholder)
-- `/admin/dashboard` - Admin dashboard (requires admin role)
-- `/user-dashboard` - User dashboard (requires authentication)
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm start` - Start production server
+- `npm run lint` - Run ESLint
 
-## Development
+## Environment Variables
 
-### Adding New Protected Routes
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL | Yes |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous/public key | Yes |
 
-1. Create route in appropriate folder:
-   - Admin routes: `app/(admin)/`
-   - User routes: `app/(user)/`
+## Database Schema
 
-2. The layout files handle authentication automatically
+The application uses the following main tables:
+- `profiles` - User profiles with roles
+- `product_categories` - Product categories
+- `products` - Product information
+- `product_images` - Product images with sort order
+- `expenses` - Expense records
 
-### Auth Helper Functions
+See `supabase/schema.sql` for complete schema.
 
-Located in `lib/auth.ts`:
+## Contributing
 
-- `getCurrentUser()` - Get current authenticated user with role
-- `requireAuth()` - Require authentication (throws if not authenticated)
-- `requireAdmin()` - Require admin role (throws if not admin)
-- `checkRole(roles)` - Check if user has one of the specified roles
+This is an internal project. For contributions, please follow the standard Git workflow:
 
-## Next Steps
-
-1. Implement login/signup UI with Supabase Auth
-2. Create database schema for pharma data
-3. Build admin and user dashboard features
-4. Add logout functionality
-5. Implement actual pharma software features
+1. Create a feature branch
+2. Make your changes
+3. Test thoroughly
+4. Submit a pull request
 
 ## License
 
-Internal use only
+Private - Internal use only
+
+## Support
+
+For issues or questions, contact the development team.
+
+---
+
+Built with ❤️ for internal pharmaceutical management
