@@ -166,13 +166,13 @@ export default function ExpensesPage() {
   const getTotalExpenses = () => {
     // Get unique user-date combinations to avoid counting duplicates
     const uniqueEntries = new Map<string, Expense>();
-    filteredExpenses.forEach(exp => {
+    filteredExpenses.forEach((exp) => {
       const key = `${exp.user_id}_${exp.expense_date}`;
       if (!uniqueEntries.has(key)) {
         uniqueEntries.set(key, exp);
       }
     });
-    
+
     return Array.from(uniqueEntries.values()).reduce(
       (sum, exp) => sum + exp.amount + (exp.fare_amount || 0),
       0
@@ -182,7 +182,7 @@ export default function ExpensesPage() {
   const getUniqueExpenseCount = () => {
     // Get unique user-date combinations
     const uniqueKeys = new Set<string>();
-    filteredExpenses.forEach(exp => {
+    filteredExpenses.forEach((exp) => {
       uniqueKeys.add(`${exp.user_id}_${exp.expense_date}`);
     });
     return uniqueKeys.size;
@@ -426,62 +426,70 @@ export default function ExpensesPage() {
                   <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-900 dark:divide-gray-700">
                     {(() => {
                       // Group expenses by user_id and date
-                      const grouped = filteredExpenses.reduce((acc, expense) => {
-                        const key = `${expense.user_id}_${expense.expense_date}`;
-                        if (!acc[key]) {
-                          acc[key] = [];
+                      const grouped = filteredExpenses.reduce(
+                        (acc, expense) => {
+                          const key = `${expense.user_id}_${expense.expense_date}`;
+                          if (!acc[key]) {
+                            acc[key] = [];
+                          }
+                          acc[key].push(expense);
+                          return acc;
+                        },
+                        {} as Record<string, Expense[]>
+                      );
+
+                      return Object.entries(grouped).map(
+                        ([key, dateExpenses]) => {
+                          const totalAmount = dateExpenses[0]?.amount || 0;
+                          const totalFare = dateExpenses[0]?.fare_amount || 0;
+                          const userProfile = dateExpenses[0]?.profiles;
+
+                          return (
+                            <tr
+                              key={key}
+                              onClick={() => setExpandedKeys(new Set([key]))}
+                              className="hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                            >
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                                {formatDate(dateExpenses[0].expense_date)}
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                                {userProfile?.display_name ||
+                                  userProfile?.user_id ||
+                                  "-"}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                                {dateExpenses.length} visit
+                                {dateExpenses.length > 1 ? "s" : ""}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                                {formatCurrency(totalAmount)}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                                {totalFare > 0
+                                  ? formatCurrency(totalFare)
+                                  : "-"}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-orange-600 dark:text-orange-400">
+                                {formatCurrency(totalAmount + (totalFare || 0))}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                <Button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setExpandedKeys(new Set([key]));
+                                  }}
+                                  variant="outline"
+                                  size="sm"
+                                  className="border-orange-600 text-orange-600 hover:bg-orange-50"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                              </td>
+                            </tr>
+                          );
                         }
-                        acc[key].push(expense);
-                        return acc;
-                      }, {} as Record<string, Expense[]>);
-
-                      return Object.entries(grouped).map(([key, dateExpenses]) => {
-                        const totalAmount = dateExpenses[0]?.amount || 0;
-                        const totalFare = dateExpenses[0]?.fare_amount || 0;
-                        const userProfile = dateExpenses[0]?.profiles;
-
-                        return (
-                          <tr
-                            key={key}
-                            onClick={() => setExpandedKeys(new Set([key]))}
-                            className="hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
-                          >
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                              {formatDate(dateExpenses[0].expense_date)}
-                            </td>
-                            <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
-                              {userProfile?.display_name ||
-                                userProfile?.user_id ||
-                                "-"}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                              {dateExpenses.length} visit{dateExpenses.length > 1 ? "s" : ""}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                              {formatCurrency(totalAmount)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                              {totalFare > 0 ? formatCurrency(totalFare) : "-"}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-orange-600 dark:text-orange-400">
-                              {formatCurrency(totalAmount + (totalFare || 0))}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                              <Button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setExpandedKeys(new Set([key]));
-                                }}
-                                variant="outline"
-                                size="sm"
-                                className="border-orange-600 text-orange-600 hover:bg-orange-50"
-                              >
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                            </td>
-                          </tr>
-                        );
-                      });
+                      );
                     })()}
                   </tbody>
                 </table>
@@ -491,135 +499,154 @@ export default function ExpensesPage() {
         </Card>
 
         {/* Details Modal */}
-        {expandedKeys.size > 0 && (() => {
-          const key = Array.from(expandedKeys)[0];
-          const dateExpenses = filteredExpenses.filter(
-            exp => `${exp.user_id}_${exp.expense_date}` === key
-          );
-          
-          if (dateExpenses.length === 0) return null;
-          
-          const totalAmount = dateExpenses[0]?.amount || 0;
-          const totalFare = dateExpenses[0]?.fare_amount || 0;
-          const userProfile = dateExpenses[0]?.profiles;
+        {expandedKeys.size > 0 &&
+          (() => {
+            const key = Array.from(expandedKeys)[0];
+            const dateExpenses = filteredExpenses.filter(
+              (exp) => `${exp.user_id}_${exp.expense_date}` === key
+            );
 
-          return (
-            <div
-              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-              onClick={() => setExpandedKeys(new Set())}
-            >
+            if (dateExpenses.length === 0) return null;
+
+            const totalAmount = dateExpenses[0]?.amount || 0;
+            const totalFare = dateExpenses[0]?.fare_amount || 0;
+            const userProfile = dateExpenses[0]?.profiles;
+
+            return (
               <div
-                className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
-                onClick={(e) => e.stopPropagation()}
+                className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+                onClick={() => setExpandedKeys(new Set())}
               >
-                {/* Header */}
-                <div className="border-b border-gray-100 dark:border-gray-700 p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                        Expense Details
-                      </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                        {formatDate(dateExpenses[0].expense_date)} • {userProfile?.display_name || userProfile?.user_id}
-                      </p>
+                <div
+                  className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Header */}
+                  <div className="border-b border-gray-100 dark:border-gray-700 p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                          Expense Details
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                          {formatDate(dateExpenses[0].expense_date)} •{" "}
+                          {userProfile?.display_name || userProfile?.user_id}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setExpandedKeys(new Set())}
+                        className="rounded-full w-8 h-8 p-0"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setExpandedKeys(new Set())}
-                      className="rounded-full w-8 h-8 p-0"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
                   </div>
-                </div>
 
-                {/* Content */}
-                <div className="p-6 overflow-y-auto flex-1">
-                  {/* Visits Table */}
-                  <div className="mb-6">
-                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                      Visits ({dateExpenses.length})
-                    </h4>
-                    <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
-                      <table className="w-full">
-                        <thead className="bg-gray-50 dark:bg-gray-800">
-                          <tr>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">#</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Doctor</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Location</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Remarks</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                          {dateExpenses
-                            .sort((a, b) => (a.visit_order || 0) - (b.visit_order || 0))
-                            .map((expense, index) => (
-                              <tr key={expense.id}>
-                                <td className="px-4 py-3 whitespace-nowrap">
-                                  <span className="bg-orange-600 text-white text-xs font-semibold px-2 py-1 rounded">
-                                    {index + 1}
-                                  </span>
-                                </td>
-                                <td className="px-4 py-3 text-sm">
-                                  {expense.doctors ? (
-                                    <div>
+                  {/* Content */}
+                  <div className="p-6 overflow-y-auto flex-1">
+                    {/* Visits Table */}
+                    <div className="mb-6">
+                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                        Visits ({dateExpenses.length})
+                      </h4>
+                      <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+                        <table className="w-full">
+                          <thead className="bg-gray-50 dark:bg-gray-800">
+                            <tr>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                #
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                Doctor
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                Location
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                Remarks
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                            {dateExpenses
+                              .sort(
+                                (a, b) =>
+                                  (a.visit_order || 0) - (b.visit_order || 0)
+                              )
+                              .map((expense, index) => (
+                                <tr key={expense.id}>
+                                  <td className="px-4 py-3 whitespace-nowrap">
+                                    <span className="bg-orange-600 text-white text-xs font-semibold px-2 py-1 rounded">
+                                      {index + 1}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-sm">
+                                    {expense.doctors ? (
+                                      <div>
+                                        <div className="font-medium text-gray-900 dark:text-white">
+                                          {expense.doctors.name}
+                                        </div>
+                                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                                          {expense.doctors.clinic}
+                                        </div>
+                                      </div>
+                                    ) : expense.doctor_name ? (
                                       <div className="font-medium text-gray-900 dark:text-white">
-                                        {expense.doctors.name}
+                                        {expense.doctor_name}
                                       </div>
-                                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                                        {expense.doctors.clinic}
-                                      </div>
-                                    </div>
-                                  ) : expense.doctor_name ? (
-                                    <div className="font-medium text-gray-900 dark:text-white">
-                                      {expense.doctor_name}
-                                    </div>
-                                  ) : (
-                                    <span className="text-gray-400">-</span>
-                                  )}
-                                </td>
-                                <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                                  {expense.location}
-                                </td>
-                                <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                                  {expense.remarks || "-"}
-                                </td>
-                              </tr>
-                            ))}
-                        </tbody>
-                      </table>
+                                    ) : (
+                                      <span className="text-gray-400">-</span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                                    {expense.location}
+                                  </td>
+                                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                                    {expense.remarks || "-"}
+                                  </td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Summary */}
-                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">Amount:</span>
-                      <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {formatCurrency(totalAmount)}
-                      </span>
-                    </div>
-                    {totalFare > 0 && (
+                    {/* Summary */}
+                    <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-2">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">Fare:</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          Amount:
+                        </span>
                         <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                          {formatCurrency(totalFare)}
+                          {formatCurrency(totalAmount)}
                         </span>
                       </div>
-                    )}
-                    <div className="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-700">
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Total:</span>
-                      <span className="text-xl font-bold text-orange-600 dark:text-orange-400">
-                        {formatCurrency(totalAmount + (totalFare || 0))}
-                      </span>
+                      {totalFare > 0 && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                            Fare:
+                          </span>
+                          <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                            {formatCurrency(totalFare)}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-700">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Total:
+                        </span>
+                        <span className="text-xl font-bold text-orange-600 dark:text-orange-400">
+                          {formatCurrency(totalAmount + (totalFare || 0))}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          );
-        })()}
+            );
+          })()}
       </div>
     </DashboardLayout>
   );

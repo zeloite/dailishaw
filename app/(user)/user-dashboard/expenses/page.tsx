@@ -928,13 +928,16 @@ export default function UserExpensesPage() {
                   <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-900 dark:divide-gray-700">
                     {(() => {
                       // Group expenses by date
-                      const groupedExpenses = expenses.reduce((acc, expense) => {
-                        if (!acc[expense.expense_date]) {
-                          acc[expense.expense_date] = [];
-                        }
-                        acc[expense.expense_date].push(expense);
-                        return acc;
-                      }, {} as Record<string, Expense[]>);
+                      const groupedExpenses = expenses.reduce(
+                        (acc, expense) => {
+                          if (!acc[expense.expense_date]) {
+                            acc[expense.expense_date] = [];
+                          }
+                          acc[expense.expense_date].push(expense);
+                          return acc;
+                        },
+                        {} as Record<string, Expense[]>
+                      );
 
                       return Object.entries(groupedExpenses).map(
                         ([date, dateExpenses]) => {
@@ -955,13 +958,16 @@ export default function UserExpensesPage() {
                                 })}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                                {dateExpenses.length} visit{dateExpenses.length > 1 ? "s" : ""}
+                                {dateExpenses.length} visit
+                                {dateExpenses.length > 1 ? "s" : ""}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                                 ₹{totalAmount.toFixed(2)}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                                {totalFare > 0 ? `₹${totalFare.toFixed(2)}` : "-"}
+                                {totalFare > 0
+                                  ? `₹${totalFare.toFixed(2)}`
+                                  : "-"}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-orange-600 dark:text-orange-400">
                                 ₹{(totalAmount + (totalFare || 0)).toFixed(2)}
@@ -1005,160 +1011,153 @@ export default function UserExpensesPage() {
         </Card>
 
         {/* Details Modal */}
-        {expandedDate && (() => {
-          const dateExpenses = expenses.filter(
-            exp => exp.expense_date === expandedDate
-          );
-          
-          if (dateExpenses.length === 0) return null;
-          
-          const totalAmount = dateExpenses[0]?.amount || 0;
-          const totalFare = dateExpenses[0]?.fare_amount || 0;
+        {expandedDate &&
+          (() => {
+            const dateExpenses = expenses.filter(
+              (exp) => exp.expense_date === expandedDate
+            );
 
-          return (
-            <div
-              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-              onClick={() => setExpandedDate(null)}
-            >
+            if (dateExpenses.length === 0) return null;
+
+            const totalAmount = dateExpenses[0]?.amount || 0;
+            const totalFare = dateExpenses[0]?.fare_amount || 0;
+
+            return (
               <div
-                className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
-                onClick={(e) => e.stopPropagation()}
+                className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+                onClick={() => setExpandedDate(null)}
               >
-                {/* Header */}
-                <div className="border-b border-gray-100 dark:border-gray-700 p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                        Expense Details
-                      </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                        {new Date(expandedDate).toLocaleDateString("en-IN", {
-                          weekday: "long",
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                        })}
-                      </p>
+                <div
+                  className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Header */}
+                  <div className="border-b border-gray-100 dark:border-gray-700 p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                          Expense Details
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                          {new Date(expandedDate).toLocaleDateString("en-IN", {
+                            weekday: "long",
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          })}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setExpandedDate(null)}
+                        className="rounded-full w-8 h-8 p-0"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setExpandedDate(null)}
-                      className="rounded-full w-8 h-8 p-0"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
                   </div>
-                </div>
 
-                {/* Content */}
-                <div className="p-6 overflow-y-auto flex-1">
-                  {/* Visits Table */}
-                  <div className="mb-6">
-                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                      Visits ({dateExpenses.length})
-                    </h4>
-                    <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
-                      <table className="w-full">
-                        <thead className="bg-gray-50 dark:bg-gray-800">
-                          <tr>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">#</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Doctor</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Location</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Remarks</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                          {dateExpenses
-                            .sort((a, b) => a.visit_order - b.visit_order)
-                            .map((expense, index) => (
-                              <tr key={expense.id}>
-                                <td className="px-4 py-3 whitespace-nowrap">
-                                  <span className="bg-orange-600 text-white text-xs font-semibold px-2 py-1 rounded">
-                                    {index + 1}
-                                  </span>
-                                </td>
-                                <td className="px-4 py-3 text-sm">
-                                  {expense.doctors ? (
-                                    <div>
+                  {/* Content */}
+                  <div className="p-6 overflow-y-auto flex-1">
+                    {/* Visits Table */}
+                    <div className="mb-6">
+                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                        Visits ({dateExpenses.length})
+                      </h4>
+                      <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+                        <table className="w-full">
+                          <thead className="bg-gray-50 dark:bg-gray-800">
+                            <tr>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                #
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                Doctor
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                Location
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                Remarks
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                            {dateExpenses
+                              .sort((a, b) => a.visit_order - b.visit_order)
+                              .map((expense, index) => (
+                                <tr key={expense.id}>
+                                  <td className="px-4 py-3 whitespace-nowrap">
+                                    <span className="bg-orange-600 text-white text-xs font-semibold px-2 py-1 rounded">
+                                      {index + 1}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-sm">
+                                    {expense.doctors ? (
+                                      <div>
+                                        <div className="font-medium text-gray-900 dark:text-white">
+                                          {expense.doctors.name}
+                                        </div>
+                                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                                          {expense.doctors.clinic}
+                                        </div>
+                                      </div>
+                                    ) : expense.doctor_name ? (
                                       <div className="font-medium text-gray-900 dark:text-white">
-                                        {expense.doctors.name}
+                                        {expense.doctor_name}
                                       </div>
-                                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                                        {expense.doctors.clinic}
-                                      </div>
-                                    </div>
-                                  ) : expense.doctor_name ? (
-                                    <div className="font-medium text-gray-900 dark:text-white">
-                                      {expense.doctor_name}
-                                    </div>
-                                  ) : (
-                                    <span className="text-gray-400">-</span>
-                                  )}
-                                </td>
-                                <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                                  {expense.location}
-                                </td>
-                                <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                                  {expense.remarks || "-"}
-                                </td>
-                              </tr>
-                            ))}
-                        </tbody>
-                      </table>
+                                    ) : (
+                                      <span className="text-gray-400">-</span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                                    {expense.location}
+                                  </td>
+                                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                                    {expense.remarks || "-"}
+                                  </td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Summary */}
-                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">Amount:</span>
-                      <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                        ₹{totalAmount.toFixed(2)}
-                      </span>
-                    </div>
-                    {totalFare > 0 && (
+                    {/* Summary */}
+                    <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-2">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">Fare:</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          Amount:
+                        </span>
                         <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                          ₹{totalFare.toFixed(2)}
+                          ₹{totalAmount.toFixed(2)}
                         </span>
                       </div>
-                    )}
-                    <div className="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-700">
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Total:</span>
-                      <span className="text-xl font-bold text-orange-600 dark:text-orange-400">
-                        ₹{(totalAmount + (totalFare || 0)).toFixed(2)}
-                      </span>
+                      {totalFare > 0 && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                            Fare:
+                          </span>
+                          <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                            ₹{totalFare.toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-700">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Total:
+                        </span>
+                        <span className="text-xl font-bold text-orange-600 dark:text-orange-400">
+                          ₹{(totalAmount + (totalFare || 0)).toFixed(2)}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                </div>
-
-                {/* Footer Actions */}
-                <div className="border-t border-gray-100 dark:border-gray-700 p-6">
-                  <div className="flex gap-3">
-                    <Button
-                      variant="outline"
-                      onClick={() => handleEditDate(expandedDate)}
-                      className="flex-1 border-orange-600 text-orange-600 hover:bg-orange-50"
-                    >
-                      <Edit2 className="w-4 h-4 mr-2" />
-                      Edit All Visits
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => handleDeleteDate(expandedDate)}
-                      className="flex-1 text-red-600 border-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Delete All Visits
-                    </Button>
                   </div>
                 </div>
               </div>
-            </div>
-          );
-        })()}
+            );
+          })()}
       </div>
     </DashboardLayout>
   );

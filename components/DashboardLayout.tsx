@@ -34,7 +34,7 @@ export default function DashboardLayout({
   navigationItems,
   pageTitle = "Dashboard",
 }: DashboardLayoutProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userInfo, setUserInfo] = useState<{
     email?: string;
     userId?: string;
@@ -115,7 +115,16 @@ export default function DashboardLayout({
       >
         {/* Logo */}
         <div className="flex items-center justify-between px-6 py-3">
-          <Link href="/dashboard" className="h-10 w-auto flex items-center">
+          <Link
+            href={
+              navigationItems.some((item) =>
+                item.href.includes("user-dashboard")
+              )
+                ? "/user-dashboard"
+                : "/dashboard"
+            }
+            className="h-10 w-auto flex items-center"
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/dashboard-logo.gif"

@@ -10,10 +10,13 @@ import {
   ArrowLeft,
   ArrowUp,
   ArrowDown,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { updateProductSortOrder } from "@/app/(admin)/dashboard/products/actions";
 import { SkeletonImageGrid } from "@/components/ui/Skeleton";
+import { usePWA, useImagePreloader } from "@/lib/hooks/usePWA";
 
 // Hide scrollbar but keep functionality
 const globalStyles = `
@@ -62,16 +65,40 @@ export default function UserMediaPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // PWA hooks
+  const { isOnline } = usePWA();
+  const { isPreloading, preloadProgress, clearOldCache } = useImagePreloader(
+    images.map((img) => img.image_url)
+  );
+
   // Minimum swipe distance (in px)
   const minSwipeDistance = 50;
 
   useEffect(() => {
     fetchCategories();
     fetchAllProducts();
-    fetchAllImages();
     // Auto enter fullscreen
     enterFullscreen();
+
+    // Clear old cache on mount (once per day)
+    const lastCacheClear = localStorage.getItem("lastCacheClear");
+    const now = Date.now();
+    const oneDayMs = 24 * 60 * 60 * 1000;
+
+    if (!lastCacheClear || now - parseInt(lastCacheClear) > oneDayMs) {
+      clearOldCache();
+      localStorage.setItem("lastCacheClear", now.toString());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    // Fetch images after categories are loaded
+    if (categories.length > 0) {
+      fetchAllImages();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categories]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -172,6 +199,18 @@ export default function UserMediaPage() {
       }));
 
       setImages(transformedImages);
+
+      // Don't set a default image - keep it null to show the dashboard GIF
+      // Home category will be selected by default
+      if (transformedImages.length > 0 && categories.length > 0) {
+        const homeCategory = categories.find(
+          (cat) => cat.name.trim().toLowerCase() === "home"
+        );
+
+        if (homeCategory) {
+          setSelectedCategoryId(homeCategory.id);
+        }
+      }
     } catch (error) {
       console.error("Error fetching images:", error);
     } finally {
@@ -194,14 +233,8 @@ export default function UserMediaPage() {
 
     if (isHome) {
       setSelectedCategoryId(categoryId);
-      // Jump directly to first image of Home category
-      const homeImages = images.filter((img) => img.category_id === categoryId);
-      if (homeImages.length > 0) {
-        const firstIndex = images.findIndex(
-          (img) => img.id === homeImages[0].id
-        );
-        setCurrentImageIndex(firstIndex);
-      }
+      // Reset to show the dashboard GIF
+      setCurrentImageIndex(null);
       return;
     }
 
@@ -340,6 +373,36 @@ export default function UserMediaPage() {
           )}
         </button>
 
+        {/* Online/Offline Indicator */}
+        <div className="absolute top-3 right-16 sm:top-4 sm:right-20 md:top-6 md:right-24 z-50">
+          <div
+            className={`flex items-center gap-2 px-3 py-2 rounded-full backdrop-blur-sm transition-all shadow-lg ${
+              isOnline
+                ? "bg-green-500/80 text-white"
+                : "bg-red-500/80 text-white"
+            }`}
+          >
+            {isOnline ? (
+              <Wifi className="w-4 h-4" />
+            ) : (
+              <WifiOff className="w-4 h-4" />
+            )}
+            <span className="hidden sm:inline text-xs font-medium">
+              {isOnline ? "Online" : "Offline"}
+            </span>
+          </div>
+        </div>
+
+        {/* Preloading Indicator */}
+        {isPreloading && (
+          <div className="absolute top-16 right-3 sm:top-20 sm:right-4 md:top-24 md:right-6 z-50">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-blue-500/80 backdrop-blur-sm text-white shadow-lg">
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <span className="text-xs font-medium">{preloadProgress}%</span>
+            </div>
+          </div>
+        )}
+
         {/* Back Button */}
         <Link
           href="/user-dashboard"
@@ -360,20 +423,7 @@ export default function UserMediaPage() {
                 Loading media...
               </p>
             </div>
-          ) : currentImage ? (
-            <div className="relative w-full h-full flex items-center justify-center">
-              <div className="relative w-full h-full max-h-full">
-                <Image
-                  src={currentImage.image_url}
-                  alt={currentImage.product_name}
-                  fill
-                  className="object-contain"
-                  priority
-                  sizes="100vw"
-                />
-              </div>
-            </div>
-          ) : (
+          ) : currentImageIndex === null || currentImage === null ? (
             <div className="relative w-full h-full flex items-center justify-center p-4">
               <div className="relative w-full h-full max-w-xs sm:max-w-md md:max-w-2xl lg:max-w-4xl">
                 <Image
@@ -387,13 +437,26 @@ export default function UserMediaPage() {
                 />
               </div>
             </div>
+          ) : (
+            <div className="relative w-full h-full flex items-center justify-center">
+              <div className="relative w-full h-full max-h-full">
+                <Image
+                  src={currentImage.image_url}
+                  alt={currentImage.product_name}
+                  fill
+                  className="object-contain"
+                  priority
+                  sizes="100vw"
+                />
+              </div>
+            </div>
           )}
         </div>
 
         {/* Bottom Category & Product Bar */}
         {isFullscreen ? (
           /* Fullscreen Mode - Buttons directly on image */
-          <div className="absolute bottom-0 left-0 right-0 z-30 bg-black/50 backdrop-blur-md border-t border-white/10">
+          <div className="absolute bottom-0 left-0 right-0 z-30 bg-white/20 backdrop-blur-md border-t border-white/30">
             <div className="flex items-center gap-2 sm:gap-2.5 md:gap-3 overflow-x-auto px-3 py-2 sm:px-4 sm:py-2.5 md:px-5 md:py-3 scrollbar-hide">
               {categories.map((category) => {
                 const isHome = category.name.trim().toLowerCase() === "home";
@@ -410,7 +473,7 @@ export default function UserMediaPage() {
                       className={`px-4 py-1.5 sm:px-5 sm:py-2 md:px-6 md:py-2.5 rounded-full whitespace-nowrap font-bold text-xs sm:text-sm md:text-base transition-all shadow-lg ${
                         selectedCategoryId === category.id
                           ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white"
-                          : "bg-white/90 text-gray-800 hover:bg-white"
+                          : "bg-white/80 text-gray-900 hover:bg-white"
                       }`}
                     >
                       {category.name}
@@ -428,10 +491,10 @@ export default function UserMediaPage() {
                               <button
                                 key={product.id}
                                 onClick={() => handleProductClick(product.id)}
-                                className={`px-3 py-1 sm:px-4 sm:py-1.5 md:px-5 md:py-2 rounded-lg text-white font-medium text-[10px] sm:text-xs md:text-sm transition-all shadow-md whitespace-nowrap ${
+                                className={`px-3 py-1 sm:px-4 sm:py-1.5 md:px-5 md:py-2 rounded-lg font-medium text-[10px] sm:text-xs md:text-sm transition-all shadow-md whitespace-nowrap ${
                                   isActiveProduct
-                                    ? "bg-gradient-to-r from-green-500 to-green-600"
-                                    : "bg-blue-500/90 backdrop-blur-sm hover:bg-blue-600/90"
+                                    ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white"
+                                    : "bg-white/70 text-gray-900 hover:bg-white/90"
                                 }`}
                               >
                                 {product.name}
@@ -483,10 +546,10 @@ export default function UserMediaPage() {
                                 <button
                                   key={product.id}
                                   onClick={() => handleProductClick(product.id)}
-                                  className={`px-3 py-1 sm:px-4 sm:py-1.5 md:px-5 md:py-2 rounded-lg text-white font-medium text-[10px] sm:text-xs md:text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap ${
+                                  className={`px-3 py-1 sm:px-4 sm:py-1.5 md:px-5 md:py-2 rounded-lg font-medium text-[10px] sm:text-xs md:text-sm transition-all shadow-md whitespace-nowrap ${
                                     isActiveProduct
-                                      ? "bg-gradient-to-r from-green-500 to-green-600"
-                                      : "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
+                                      ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white"
+                                      : "bg-white text-gray-700 hover:bg-gray-50"
                                   }`}
                                 >
                                   {product.name}

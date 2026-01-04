@@ -172,6 +172,18 @@ export default function CreateCategoryPage() {
         data: { user },
       } = await supabase.auth.getUser();
 
+      // Get the highest sort_order to add new category at the end
+      const { data: maxSortData } = await supabase
+        .from("product_categories")
+        .select("sort_order")
+        .order("sort_order", { ascending: false })
+        .limit(1);
+
+      const nextSortOrder =
+        maxSortData && maxSortData[0]?.sort_order !== null
+          ? (maxSortData[0]?.sort_order ?? 0) + 1
+          : 0;
+
       // Insert category
       const { error: insertError } = await supabase
         .from("product_categories")
@@ -180,6 +192,7 @@ export default function CreateCategoryPage() {
             name: categoryName.trim(),
             description: description.trim() || null,
             created_by: user?.id || null,
+            sort_order: nextSortOrder,
           },
         ]);
 
