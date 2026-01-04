@@ -1,18 +1,49 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import Image from 'next/image';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { createClient } from "@/lib/supabase/client";
 
 export default function HomePage() {
   const router = useRouter();
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      router.push('/login');
-    }, 4000);
+    const checkAuth = async () => {
+      const supabase = createClient();
 
-    return () => clearTimeout(timer);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        // User is logged in, check their role
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+
+        const userRole = profile?.role || "user";
+
+        // Redirect to appropriate dashboard
+        if (userRole === "admin") {
+          router.push("/dashboard");
+        } else {
+          router.push("/user-dashboard");
+        }
+      } else {
+        // Not logged in, go to login page after splash
+        setTimeout(() => {
+          router.push("/login");
+        }, 2000);
+      }
+
+      setChecking(false);
+    };
+
+    checkAuth();
   }, [router]);
 
   return (
