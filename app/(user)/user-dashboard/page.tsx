@@ -21,6 +21,18 @@ const navigationItems = [
     active: false,
     href: '/user-dashboard/expenses',
   },
+  {
+    icon: '/mdi-input.svg',
+    label: 'Input',
+    active: false,
+    href: '/user-dashboard/input',
+  },
+  {
+    icon: '/mdi-investment.svg',
+    label: 'Investment',
+    active: false,
+    href: '/user-dashboard/investment',
+  },
 ];
 
 const actionCards = [
@@ -35,6 +47,18 @@ const actionCards = [
     title: 'Expense Management',
     description: 'Manage and track your expenses',
     href: '/user-dashboard/expenses',
+  },
+  {
+    icon: TrendingUp,
+    title: 'Input',
+    description: 'Enter and manage input records',
+    href: '/user-dashboard/input',
+  },
+  {
+    icon: TrendingUp,
+    title: 'Investment',
+    description: 'Track and manage investments',
+    href: '/user-dashboard/investment',
   },
 ];
 

@@ -24,6 +24,18 @@ const navigationItems = [
     active: true,
     href: "/user-dashboard/expenses",
   },
+  {
+    icon: "/mdi-input.svg",
+    label: "Input",
+    active: false,
+    href: "/user-dashboard/input",
+  },
+  {
+    icon: "/mdi-investment.svg",
+    label: "Investment",
+    active: false,
+    href: "/user-dashboard/investment",
+  },
 ];
 
 interface Doctor {
@@ -39,6 +51,8 @@ interface Expense {
   doctor_id: string | null;
   doctor_name: string | null;
   location: string;
+  specialty: string | null;
+  contact_detail: string | null;
   amount: number;
   fare_amount: number | null;
   remarks: string | null;
@@ -50,6 +64,8 @@ interface VisitEntry {
   doctor_id: string;
   doctor_name: string;
   location: string;
+  specialty: string;
+  contact_detail: string;
   remarks: string;
   doctorInputMode: "select" | "manual";
 }
@@ -79,8 +95,10 @@ export default function UserExpensesPage() {
         doctor_id: "",
         doctor_name: "",
         location: "",
+        specialty: "",
+        contact_detail: "",
         remarks: "",
-        doctorInputMode: "select",
+        doctorInputMode: "manual",
       },
     ],
   });
@@ -105,7 +123,17 @@ export default function UserExpensesPage() {
         .from("expenses")
         .select(
           `
-          *,
+          id,
+          expense_date,
+          doctor_id,
+          doctor_name,
+          location,
+          specialty,
+          contact_detail,
+          amount,
+          fare_amount,
+          remarks,
+          visit_order,
           doctors (
             id,
             name,
@@ -119,6 +147,7 @@ export default function UserExpensesPage() {
         .order("visit_order", { ascending: true });
 
       if (error) throw error;
+      
       setExpenses(data || []);
     } catch (err: any) {
       setError(err.message);
@@ -151,8 +180,10 @@ export default function UserExpensesPage() {
           doctor_id: "",
           doctor_name: "",
           location: "",
+          specialty: "",
+          contact_detail: "",
           remarks: "",
-          doctorInputMode: "select",
+          doctorInputMode: "manual",
         },
       ],
     });
@@ -255,6 +286,8 @@ export default function UserExpensesPage() {
             ? visit.doctor_name
             : null,
         location: visit.location,
+        specialty: visit.specialty || null,
+        contact_detail: visit.contact_detail || null,
         amount: totalAmount,
         fare_amount: totalFare,
         remarks: visit.remarks || null,
@@ -297,6 +330,8 @@ export default function UserExpensesPage() {
         doctor_id: exp.doctor_id || "",
         doctor_name: exp.doctor_name || exp.doctors?.name || "",
         location: exp.location,
+        specialty: exp.specialty || "",
+        contact_detail: exp.contact_detail || "",
         remarks: exp.remarks || "",
         doctorInputMode: exp.doctor_name ? "manual" : "select",
       })),
@@ -402,8 +437,10 @@ export default function UserExpensesPage() {
           doctor_id: "",
           doctor_name: "",
           location: "",
+          specialty: "",
+          contact_detail: "",
           remarks: "",
-          doctorInputMode: "select",
+          doctorInputMode: "manual",
         },
       ],
     });
@@ -445,10 +482,13 @@ export default function UserExpensesPage() {
         doctor_id: exp.doctor_id || "",
         doctor_name: exp.doctor_name || exp.doctors?.name || "",
         location: exp.location,
+        specialty: exp.specialty || "",
+        contact_detail: exp.contact_detail || "",
         remarks: exp.remarks || "",
         doctorInputMode: exp.doctor_name ? "manual" : "select",
       })),
     });
+    
     setShowForm(true);
   };
   return (
@@ -844,6 +884,40 @@ export default function UserExpensesPage() {
                               }
                               required
                               placeholder="Clinic/Hospital"
+                            />
+                          </div>
+
+                          {/* Specialty */}
+                          <div>
+                            <Label>Specialty</Label>
+                            <Input
+                              type="text"
+                              value={visit.specialty}
+                              onChange={(e) =>
+                                updateVisitRow(
+                                  index,
+                                  "specialty",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="e.g., Cardiology, Neurology"
+                            />
+                          </div>
+
+                          {/* Contact Detail */}
+                          <div>
+                            <Label>Contact Detail</Label>
+                            <Input
+                              type="text"
+                              value={visit.contact_detail}
+                              onChange={(e) =>
+                                updateVisitRow(
+                                  index,
+                                  "contact_detail",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="Phone number or email"
                             />
                           </div>
 

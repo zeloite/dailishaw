@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/Card";
 import DashboardLayout from "@/components/DashboardLayout";
 import { SkeletonTable } from "@/components/ui/Skeleton";
 import { createClient } from "@/lib/supabase/client";
-import { Eye, X, Users } from "lucide-react";
+import { Eye, X, Users, Download } from "lucide-react";
 import { Label } from "@/components/ui/Label";
 
 const navigationItems = [
@@ -27,6 +27,18 @@ const navigationItems = [
     label: "Expense Monitoring",
     active: true,
     href: "/dashboard/expenses",
+  },
+  {
+    icon: "/mdi-input.svg",
+    label: "Input Monitoring",
+    active: false,
+    href: "/dashboard/inputs",
+  },
+  {
+    icon: "/mdi-investment.svg",
+    label: "Investment Monitoring",
+    active: false,
+    href: "/dashboard/investments",
   },
 ];
 
@@ -50,6 +62,8 @@ interface Expense {
   doctor_id: string | null;
   doctor_name: string | null;
   location: string;
+  specialty: string | null;
+  contact_detail: string | null;
   amount: number;
   fare_amount: number | null;
   remarks: string | null;
@@ -97,6 +111,66 @@ export default function ExpensesPage() {
     } catch (err: any) {
       console.error("Error fetching users:", err);
     }
+  };
+
+  const downloadCSV = () => {
+    // Prepare CSV data
+    const csvData: string[] = [];
+    
+    // CSV Headers
+    csvData.push(
+      [
+        "Date",
+        "User",
+        "Visit Order",
+        "Doctor Name",
+        "Doctor Clinic",
+        "Location",
+        "Specialty",
+        "Contact Detail",
+        "Amount",
+        "Fare Amount",
+        "Total",
+        "Remarks"
+      ].join(",")
+    );
+
+    // Add expense data rows
+    filteredExpenses.forEach((expense) => {
+      const row = [
+        expense.expense_date,
+        expense.profiles?.display_name || "-",
+        (expense.visit_order + 1).toString(),
+        expense.doctors?.name || expense.doctor_name || "-",
+        expense.doctors?.clinic || "-",
+        `"${expense.location.replace(/"/g, '""')}"`,
+        expense.specialty ? `"${expense.specialty.replace(/"/g, '""')}"` : "-",
+        expense.contact_detail ? `"${expense.contact_detail.replace(/"/g, '""')}"` : "-",
+        expense.amount.toString(),
+        expense.fare_amount?.toString() || "-",
+        (expense.amount + (expense.fare_amount || 0)).toString(),
+        expense.remarks ? `"${expense.remarks.replace(/"/g, '""')}"` : "-"
+      ];
+      csvData.push(row.join(","));
+    });
+
+    // Create blob and download
+    const blob = new Blob([csvData.join("\n")], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    
+    // Generate filename with date and user info
+    const userName = selectedUser === "all" 
+      ? "All_Users" 
+      : users.find(u => u.id === selectedUser)?.display_name || "User";
+    const date = new Date().toISOString().split("T")[0];
+    link.download = `Expenses_${userName}_${date}.csv`;
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   };
 
   const fetchExpenses = async () => {
@@ -282,6 +356,30 @@ export default function ExpensesPage() {
                     </p>
                   </div>
 
+                  {/* Specialty */}
+                  {selectedExpense.specialty && (
+                    <div>
+                      <Label className="text-gray-500 dark:text-gray-400 text-xs uppercase">
+                        Specialty
+                      </Label>
+                      <p className="text-lg font-medium text-gray-900 dark:text-white mt-1">
+                        {selectedExpense.specialty}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Contact Detail */}
+                  {selectedExpense.contact_detail && (
+                    <div>
+                      <Label className="text-gray-500 dark:text-gray-400 text-xs uppercase">
+                        Contact Detail
+                      </Label>
+                      <p className="text-lg font-medium text-gray-900 dark:text-white mt-1">
+                        {selectedExpense.contact_detail}
+                      </p>
+                    </div>
+                  )}
+
                   {/* Amount */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -362,18 +460,28 @@ export default function ExpensesPage() {
                 <Label className="text-gray-500 dark:text-gray-400 text-xs uppercase mb-2 block">
                   Filter by User
                 </Label>
-                <select
-                  value={selectedUser}
-                  onChange={(e) => setSelectedUser(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 dark:text-white bg-white dark:bg-gray-800"
-                >
-                  <option value="all">All Users</option>
-                  {users.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.display_name || user.user_id}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex gap-2">
+                  <select
+                    value={selectedUser}
+                    onChange={(e) => setSelectedUser(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 dark:text-white bg-white dark:bg-gray-800"
+                  >
+                    <option value="all">All Users</option>
+                    {users.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.display_name || user.user_id}
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    onClick={downloadCSV}
+                    disabled={filteredExpenses.length === 0}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    CSV
+                  </Button>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -565,6 +673,12 @@ export default function ExpensesPage() {
                                 Location
                               </th>
                               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                Specialty
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                Contact
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                                 Remarks
                               </th>
                             </tr>
@@ -602,6 +716,12 @@ export default function ExpensesPage() {
                                   </td>
                                   <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
                                     {expense.location}
+                                  </td>
+                                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                                    {expense.specialty || "-"}
+                                  </td>
+                                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                                    {expense.contact_detail || "-"}
                                   </td>
                                   <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                                     {expense.remarks || "-"}

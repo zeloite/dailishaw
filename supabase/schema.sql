@@ -73,6 +73,8 @@ create table expenses (
   expense_date date not null check (expense_date <= CURRENT_DATE),
   doctor_id uuid references doctors(id),
   location text not null,
+  specialty text,
+  contact_detail text,
   amount numeric(10,2) not null check (amount > 0),
   fare_amount numeric(10,2) check (fare_amount >= 0),
   remarks text,
@@ -293,6 +295,38 @@ create trigger update_doctors_updated_at
 
 create trigger update_expenses_updated_at
   before update on expenses
+  for each row execute function update_updated_at_column();
+
+-- Inputs table for user input tracking
+create table inputs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users on delete cascade,
+  sl_no text not null,
+  doctor_name text not null,
+  input text not null,
+  quantity integer not null,
+  created_at timestamp default now(),
+  updated_at timestamp default now()
+);
+
+create trigger update_inputs_updated_at
+  before update on inputs
+  for each row execute function update_updated_at_column();
+
+-- Investments table for user investment tracking
+create table investments (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users on delete cascade,
+  sl_no text not null,
+  doctor_name text not null,
+  investment text not null,
+  roi text not null,
+  created_at timestamp default now(),
+  updated_at timestamp default now()
+);
+
+create trigger update_investments_updated_at
+  before update on investments
   for each row execute function update_updated_at_column();
 
 -- Function to create profile after user signup

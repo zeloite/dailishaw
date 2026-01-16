@@ -36,6 +36,18 @@ const navigationItems = [
     active: false,
     href: "/dashboard/expenses",
   },
+  {
+    icon: "/mdi-input.svg",
+    label: "Input Monitoring",
+    active: false,
+    href: "/dashboard/inputs",
+  },
+  {
+    icon: "/mdi-investment.svg",
+    label: "Investment Monitoring",
+    active: false,
+    href: "/dashboard/investments",
+  },
 ];
 
 const actionCards = [
