@@ -57,7 +57,7 @@ interface Expense {
   fare_amount: number | null;
   remarks: string | null;
   visit_order: number;
-  doctors?: Doctor;
+  doctors?: Doctor | null;
 }
 
 interface VisitEntry {
@@ -148,7 +148,13 @@ export default function UserExpensesPage() {
 
       if (error) throw error;
       
-      setExpenses(data || []);
+      // Transform data to handle doctors as single object instead of array
+      const transformedData = (data?.map((item: any) => ({
+        ...item,
+        doctors: item.doctors ? (Array.isArray(item.doctors) ? item.doctors[0] : item.doctors) : null,
+      })) || []) as Expense[];
+      
+      setExpenses(transformedData);
     } catch (err: any) {
       setError(err.message);
     } finally {
