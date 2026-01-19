@@ -12,11 +12,7 @@ export const metadata: Metadata = {
     shortcut: "/favicon.ico",
     apple: "/favicon.ico",
   },
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-  },
+  viewport: "width=device-width, initial-scale=1, maximum-scale=2, user-scalable=yes",
   themeColor: "#ea580c", // orange-600
   manifest: "/manifest.json",
   appleWebApp: {
