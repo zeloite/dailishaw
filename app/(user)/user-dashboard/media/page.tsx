@@ -6,8 +6,8 @@ import Link from 'next/link';
 import {
   Minimize,
   Maximize,
-  X,
   ArrowLeft,
+  RotateCw,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -30,6 +30,19 @@ const globalStyles = `
     min-width: 100vw;
     background: black;
     color: white;
+  }
+  
+  /* Force landscape mode */
+  @media (orientation: portrait) {
+    html {
+      transform: rotate(90deg);
+      transform-origin: left top;
+      width: 100vh !important;
+      height: 100vw !important;
+      position: absolute;
+      top: 100%;
+      left: 0;
+    }
   }
 `;
 
@@ -70,6 +83,7 @@ export default function UserMediaPage() {
   const [isZooming, setIsZooming] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
+  const [orientationLocked, setOrientationLocked] = useState(false);
 
   // Minimum swipe distance (in px)
   const minSwipeDistance = 50;
@@ -83,8 +97,11 @@ export default function UserMediaPage() {
     fetchCategories();
     fetchAllProducts();
     fetchAllImages();
-    // Auto enter fullscreen
-    enterFullscreen();
+    // Auto enter fullscreen and lock orientation
+    setTimeout(() => {
+      enterFullscreen();
+      lockOrientation();
+    }, 100);
   }, []);
 
   useEffect(() => {
@@ -104,18 +121,57 @@ export default function UserMediaPage() {
     setIsZooming(false);
   }, [currentImageIndex]);
 
-  const enterFullscreen = () => {
-    setTimeout(() => {
-      containerRef.current?.requestFullscreen().catch(err => {
-        console.log('Fullscreen request failed:', err);
-      });
-    }, 100);
+  const enterFullscreen = async () => {
+    try {
+      if (containerRef.current) {
+        await containerRef.current.requestFullscreen();
+      }
+    } catch (err) {
+      console.log('Fullscreen request failed:', err);
+    }
+  };
+
+  const lockOrientation = async () => {
+    try {
+      // Try screen orientation lock (works in Chrome/Android)
+      const screenAny = screen as any;
+      if (screenAny.orientation && 'lock' in screenAny.orientation) {
+        await (screenAny.orientation as any).lock('landscape');
+        setOrientationLocked(true);
+      } else if (screenAny.lockOrientation) {
+        // Legacy API
+        screenAny.lockOrientation('landscape');
+        setOrientationLocked(true);
+      } else if (screenAny.mozLockOrientation) {
+        screenAny.mozLockOrientation('landscape');
+        setOrientationLocked(true);
+      } else if (screenAny.msLockOrientation) {
+        screenAny.msLockOrientation('landscape');
+        setOrientationLocked(true);
+      }
+    } catch (err) {
+      console.log('Orientation lock failed:', err);
+      setOrientationLocked(false);
+    }
+  };
+
+  const unlockOrientation = () => {
+    try {
+      const screenAny = screen as any;
+      if (screenAny.orientation && 'unlock' in screenAny.orientation) {
+        (screenAny.orientation as any).unlock();
+      }
+      setOrientationLocked(false);
+    } catch (err) {
+      console.log('Orientation unlock failed:', err);
+    }
   };
 
   const exitFullscreen = () => {
     if (document.fullscreenElement) {
       document.exitFullscreen();
     }
+    unlockOrientation();
   };
 
   const toggleFullscreen = () => {
@@ -123,6 +179,7 @@ export default function UserMediaPage() {
       exitFullscreen();
     } else {
       enterFullscreen();
+      lockOrientation();
     }
   };
 
@@ -510,10 +567,11 @@ export default function UserMediaPage() {
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
-      {/* Exit Fullscreen Button */}
+      {/* Fullscreen/Orientation Control Button */}
       <button
         onClick={toggleFullscreen}
-        className="absolute top-3 right-3 sm:top-4 sm:right-4 md:top-6 md:right-6 z-[100] p-2 sm:p-2.5 md:p-3 rounded-full bg-white/60 border border-white/40 backdrop-blur-sm shadow-md hover:bg-white/70 transition-all"
+        className="absolute top-3 right-3 sm:top-4 sm:right-4 md:top-6 md:right-14 z-[100] p-2 sm:p-2.5 md:p-3 rounded-full bg-white/60 border border-white/40 backdrop-blur-sm shadow-md hover:bg-white/70 transition-all"
+        title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
       >
         {isFullscreen ? (
           <Minimize className="w-5 h-5 sm:w-5 sm:h-5 md:w-6 md:h-6 text-black" />
@@ -561,12 +619,12 @@ export default function UserMediaPage() {
           </div>
         ) : (
           <div className="w-full h-full flex items-center justify-center p-4">
-            <div className="relative w-full max_w_xs sm:max_w_md md:max_w_2xl lg:max_w_4xl aspect-video">
+            <div className="relative w-full max-w-xs sm:max-w-md md:max-w-2xl lg:max-w-4xl aspect-video">
               <Image
                 src="/dashboard-logo.gif"
                 alt="Dailishaw"
                 layout="fill"
-                className="object-contain min_w_[100vw] min_h_[100vh]"
+                className="object-contain min-w-[100vw] min-h-[100vh]"
                 unoptimized
                 priority
                 sizes="(max-width: 640px) 100vw, (max-width: 768px) 80vw, (max-width: 1024px) 70vw, 60vw"
