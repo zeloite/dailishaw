@@ -640,7 +640,7 @@ export default function UserMediaPage() {
         </Link>
 
         {/* Main Content Area - Fullscreen Image */}
-        <div className="absolute inset-0 bottom-[3rem] w-full h-[calc(100%-3rem)] overflow-hidden bg-black flex items-center justify-center">
+        <div className="absolute inset-x-0 top-0 bottom-12 sm:bottom-14 md:bottom-16 overflow-hidden bg-black flex items-center justify-center">
           {loading ? (
             <div className="flex flex-col items-center justify-center h-full">
               <div className="animate-spin rounded-full h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 border-b-4 border-[#f9831b]"></div>
@@ -662,10 +662,9 @@ export default function UserMediaPage() {
               <Image
                 src={currentImage.image_url}
                 alt={currentImage.product_name}
-                layout="fill"
-                className="w-full h-full"
+                fill
+                className="object-contain"
                 style={{
-                  objectFit: "cover",
                   objectPosition: "center",
                 }}
                 priority
